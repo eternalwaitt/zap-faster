@@ -1545,10 +1545,10 @@ msgstr ""
 msgid ""
 "Everyone in this chat will see \"This message was deleted\" instead. It "
 "cannot be undone."
-msgstr ""
+msgstr "Alle in diesem Chat sehen stattdessen „Diese Nachricht wurde gelöscht“. Dies kann nicht rückgängig gemacht werden."
 
 #: src/ui/dialogs.rs:1122
 msgid ""
 "This removes the message from your phone and linked devices. Other people "
 "keep their copy. Connect to WhatsApp to delete it. This cannot be undone."
-msgstr ""
+msgstr "Dadurch wird die Nachricht von deinem Telefon und deinen verknüpften Geräten entfernt. Andere Personen behalten ihre Kopie. Verbinde dich mit WhatsApp, um sie zu löschen. Dies kann nicht rückgängig gemacht werden."
