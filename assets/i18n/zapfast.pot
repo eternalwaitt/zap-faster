@@ -9,7 +9,7 @@ msgstr ""
 "Project-Id-Version: ZapFast\n"
 "Report-Msgid-Bugs-To: https://github.com/crmne/zapfast/issues/new?"
 "template=translation.yml\n"
-"POT-Creation-Date: 2026-10-03 10:09+0200\n"
+"POT-Creation-Date: 2026-10-03 12:42-0300\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -182,7 +182,7 @@ msgstr ""
 msgid "No favorites yet"
 msgstr ""
 
-#: src/ui/chats.rs:885 src/app.rs:1672
+#: src/ui/chats.rs:885 src/app.rs:1678
 msgid "Message yourself"
 msgstr ""
 
@@ -200,12 +200,12 @@ msgid "Add to favorites"
 msgstr ""
 
 #: src/ui/chats.rs:1157 src/ui/chats.rs:1537 src/ui/conversation.rs:222
-#: src/ui/dialogs.rs:1189 src/ui/dialogs.rs:1707
+#: src/ui/dialogs.rs:1195 src/ui/dialogs.rs:1713
 msgid "Leave group"
 msgstr ""
 
 #: src/ui/chats.rs:1158 src/ui/chats.rs:1535 src/ui/conversation.rs:220
-#: src/ui/dialogs.rs:1187 src/ui/dialogs.rs:1705
+#: src/ui/dialogs.rs:1193 src/ui/dialogs.rs:1711
 msgid "Leave channel"
 msgstr ""
 
@@ -434,84 +434,96 @@ msgstr ""
 msgid "Send"
 msgstr ""
 
-#: src/ui/dialogs.rs:1062 src/ui/dialogs.rs:1217 src/ui/settings.rs:913
+#: src/ui/dialogs.rs:1062 src/ui/dialogs.rs:1223 src/ui/settings.rs:913
 #: src/ui/settings.rs:1449 src/ui/lock.rs:142
 msgid "Cancel"
 msgstr ""
 
-#: src/ui/dialogs.rs:1171
+#: src/ui/dialogs.rs:1114
+msgid ""
+"Everyone in this chat will see \"This message was deleted\" instead. It "
+"cannot be undone."
+msgstr ""
+
+#: src/ui/dialogs.rs:1122
+msgid ""
+"This removes the message from your phone and linked devices. Other people "
+"keep their copy. Connect to WhatsApp to delete it. This cannot be undone."
+msgstr ""
+
+#: src/ui/dialogs.rs:1177
 msgid "Leave this channel?"
 msgstr ""
 
-#: src/ui/dialogs.rs:1173
+#: src/ui/dialogs.rs:1179
 msgid "Leave this group?"
 msgstr ""
 
-#: src/ui/dialogs.rs:1180
+#: src/ui/dialogs.rs:1186
 msgid ""
 "You will not receive new messages. The local history stays on this computer."
 msgstr ""
 
-#: src/ui/dialogs.rs:1200
+#: src/ui/dialogs.rs:1206
 msgid "Leave channel and archive"
 msgstr ""
 
-#: src/ui/dialogs.rs:1202
+#: src/ui/dialogs.rs:1208
 msgid "Leave group and archive"
 msgstr ""
 
-#: src/ui/dialogs.rs:1427
+#: src/ui/dialogs.rs:1433
 msgid "Also save to your phone's contacts"
 msgstr ""
 
-#: src/ui/dialogs.rs:1492
+#: src/ui/dialogs.rs:1498
 msgid "Group"
 msgstr ""
 
-#: src/ui/dialogs.rs:1494
+#: src/ui/dialogs.rs:1500
 msgid "Channel"
 msgstr ""
 
-#: src/ui/dialogs.rs:1496
+#: src/ui/dialogs.rs:1502
 msgid "Contact"
 msgstr ""
 
-#: src/ui/dialogs.rs:1541
+#: src/ui/dialogs.rs:1547
 msgid "Edit group name"
 msgstr ""
 
-#: src/ui/dialogs.rs:1671
+#: src/ui/dialogs.rs:1677
 msgid "Saving…"
 msgstr ""
 
-#: src/ui/dialogs.rs:1681
+#: src/ui/dialogs.rs:1687
 #, rust-format
 msgid "{} member"
 msgid_plural "{} members"
 msgstr[0] ""
 msgstr[1] ""
 
-#: src/ui/dialogs.rs:1944
+#: src/ui/dialogs.rs:1950
 msgid "Change group photo"
 msgstr ""
 
-#: src/ui/dialogs.rs:1950
+#: src/ui/dialogs.rs:1956
 msgid "Change photo"
 msgstr ""
 
-#: src/ui/dialogs.rs:1951
+#: src/ui/dialogs.rs:1957
 msgid "Remove photo"
 msgstr ""
 
-#: src/ui/dialogs.rs:1991
+#: src/ui/dialogs.rs:1997
 msgid "Group name"
 msgstr ""
 
-#: src/ui/dialogs.rs:2034
+#: src/ui/dialogs.rs:2040
 msgid "Save name (Enter)"
 msgstr ""
 
-#: src/ui/dialogs.rs:2046
+#: src/ui/dialogs.rs:2052
 msgid "Cancel (Escape)"
 msgstr ""
 
@@ -1033,64 +1045,64 @@ msgstr[1] ""
 msgid "No one yet"
 msgstr ""
 
-#: src/app.rs:1577
+#: src/app.rs:1583
 #, rust-format
 msgid "A label named “{name}” already exists."
 msgstr ""
 
-#: src/app.rs:1653
+#: src/app.rs:1659
 #, rust-format
 msgid "{name} (You)"
 msgstr ""
 
-#: src/app.rs:1654 src/app.rs:1673
+#: src/app.rs:1660 src/app.rs:1679
 msgid "You"
 msgstr ""
 
-#: src/app.rs:2492
+#: src/app.rs:2498
 msgid "Could not use this image"
 msgstr ""
 
-#: src/app.rs:2958
+#: src/app.rs:2964
 msgid "Not sent: ZapFast is not connected to WhatsApp."
 msgstr ""
 
-#: src/app.rs:2962
+#: src/app.rs:2968
 msgid ""
 "Not sent: the message you’re replying to isn’t available on this computer. "
 "Cancel the reply to send without a quote."
 msgstr ""
 
-#: src/app.rs:4407
+#: src/app.rs:4410
 msgid "Added to favorites"
 msgstr ""
 
-#: src/app.rs:4482
+#: src/app.rs:4485
 msgid "Sending the sticker pack…"
 msgstr ""
 
-#: src/app.rs:4772 src/ui/labels.rs:243
+#: src/app.rs:4775 src/ui/labels.rs:243
 #, rust-format
 msgid "You have {limit} labels, the most ZapFast keeps."
 msgstr ""
 
-#: src/app.rs:5416
+#: src/app.rs:5419
 msgid "App lock password saved"
 msgstr ""
 
-#: src/app.rs:5424
+#: src/app.rs:5427
 msgid "App lock turned off"
 msgstr ""
 
-#: src/app.rs:5537
+#: src/app.rs:5540
 msgid "This video opens in your system player"
 msgstr ""
 
-#: src/app.rs:6073
+#: src/app.rs:5965
 msgid "Copied image"
 msgstr ""
 
-#: src/app.rs:6076 src/app.rs:6081
+#: src/app.rs:5968 src/app.rs:5973
 msgid "Failed to copy image"
 msgstr ""
 
