@@ -1187,7 +1187,7 @@ fn theme_picker(ui: &mut egui::Ui, app: &mut App) {
 
 /// The website's page on writing a theme.
 const THEMES_GUIDE: &str =
-    "https://github.com/eternalwaitt/zap-faster/blob/main/docs/_guide/themes.md";
+    "https://github.com/eternalwaitt/zap-faster/blob/main/docs/_reference/themes.md";
 
 /// The interface language menu.
 fn font_picker(ui: &mut egui::Ui, app: &mut App) {

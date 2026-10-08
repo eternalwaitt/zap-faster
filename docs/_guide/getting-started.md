@@ -1,6 +1,6 @@
 ---
 title: Getting Started
-description: Install ZapFast, link your phone, and load chat history.
+description: Install Zap Faster, link your phone, and load chat history.
 nav_order: 2
 ---
 
@@ -12,14 +12,14 @@ macOS, and Windows.
 Or build from source with a recent stable [Rust](https://rustup.rs):
 
 ```sh
-git clone https://github.com/crmne/zapfast zapfast
+git clone https://github.com/eternalwaitt/zap-faster zapfast
 cd zapfast
 cargo install --path .
 zapfast
 ```
 
 On Linux, `cargo install` puts the binary on your `PATH` but does not add a
-launcher entry. To get one (ZapFast under your application launcher, with its
+launcher entry. To get one (Zap Faster under your application launcher, with its
 own icon and no terminal), install a release build instead:
 
 ```sh
@@ -56,7 +56,7 @@ The packaged desktop entry is `packaging/applications/zapfast.desktop`;
 
 ## Link with your phone
 
-ZapFast links as a companion device, like WhatsApp Web. Start it and either:
+Zap Faster links as a companion device, like WhatsApp Web. Start it and either:
 
 - scan the QR code with your phone (WhatsApp, **Settings**, **Linked
   devices**, **Link a device**), or
@@ -64,7 +64,7 @@ ZapFast links as a companion device, like WhatsApp Web. Start it and either:
   phone.
 
 The link survives restarts. Your phone does not need to stay on the same
-network or be online to read messages already stored in ZapFast.
+network or be online to read messages already stored in Zap Faster.
 
 Several numbers can stay linked in one window. Click your own picture at the
 top of the chat list to switch between them or to add another (**Settings >
@@ -76,9 +76,9 @@ notification, receipt, download, and wallpaper settings.
 ## Message history
 
 After linking, the phone sends recent history. The chat list appears within
-seconds, and messages can take a few minutes to finish loading. ZapFast stores
+seconds, and messages can take a few minutes to finish loading. Zap Faster stores
 new messages in its own archive. When you scroll past the stored history,
-ZapFast asks your phone for older messages. The phone must be online.
+Zap Faster asks your phone for older messages. The phone must be online.
 
 ## Try it in your own chat
 

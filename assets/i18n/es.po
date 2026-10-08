@@ -6,7 +6,7 @@ msgstr ""
 "Project-Id-Version: Zap Faster 0.20.0\n"
 "Report-Msgid-Bugs-To: https://github.com/eternalwaitt/zap-faster/issues/new?"
 "template=translation.yml\n"
-"POT-Creation-Date: 2026-10-08 20:08-0300\n"
+"POT-Creation-Date: 2026-10-08 20:13-0300\n"
 "PO-Revision-Date: 2026-09-22 00:00-0300\n"
 "Last-Translator: ZapFast contributors\n"
 "Language-Team: Spanish\n"
@@ -1518,11 +1518,11 @@ msgstr "No se pudo comprobar el número. Inténtalo de nuevo."
 msgid "This number is not on WhatsApp"
 msgstr "Este número no está en WhatsApp"
 
-#: src/app.rs:727 src/app.rs:17126
+#: src/app.rs:727 src/app.rs:17135
 msgid "Not connected to WhatsApp"
 msgstr "Sin conexión a WhatsApp"
 
-#: src/app.rs:730 src/app.rs:6485
+#: src/app.rs:730 src/app.rs:6494
 msgid "Enter a valid international phone number"
 msgstr "Introduce un número de teléfono internacional válido"
 
@@ -1540,15 +1540,15 @@ msgstr "Ya existe una etiqueta llamada «{name}»."
 msgid "{name} (You)"
 msgstr "{name} (Tú)"
 
-#: src/app.rs:3244
+#: src/app.rs:3253
 msgid "Could not use this image"
 msgstr "No se pudo usar esta imagen"
 
-#: src/app.rs:4011
+#: src/app.rs:4020
 msgid "Not sent: Zap Faster is not connected to WhatsApp."
 msgstr "No enviado: Zap Faster no está conectado a WhatsApp."
 
-#: src/app.rs:4015
+#: src/app.rs:4024
 msgid ""
 "Not sent: the message you’re replying to isn’t available on this computer. "
 "Cancel the reply to send without a quote."
@@ -1556,52 +1556,52 @@ msgstr ""
 "No enviado: el mensaje al que respondes no está disponible en este equipo. "
 "Cancela la respuesta para enviarlo sin cita."
 
-#: src/app.rs:4563 src/app.rs:17123
+#: src/app.rs:4572 src/app.rs:17132
 msgid "This message can no longer be edited"
 msgstr "Este mensaje ya no se puede editar"
 
-#: src/app.rs:5644
+#: src/app.rs:5653
 msgid "A selected chat is no longer writable"
 msgstr "Ya no se pueden enviar mensajes a uno de los chats seleccionados"
 
-#: src/app.rs:6179
+#: src/app.rs:6188
 msgid "Added to favorites"
 msgstr "Añadido a favoritos"
 
-#: src/app.rs:6256
+#: src/app.rs:6265
 msgid "Sending the sticker pack…"
 msgstr "Enviando el paquete de stickers…"
 
-#: src/app.rs:6585 src/ui/labels.rs:249
+#: src/app.rs:6594 src/ui/labels.rs:249
 #, rust-format
 msgid "You have {limit} labels, the most Zap Faster keeps."
 msgstr "Tienes {limit} etiquetas, el máximo que guarda Zap Faster."
 
-#: src/app.rs:7308
+#: src/app.rs:7317
 msgid "App lock password saved"
 msgstr ""
 
-#: src/app.rs:7316
+#: src/app.rs:7325
 msgid "App lock turned off"
 msgstr ""
 
-#: src/app.rs:7439
+#: src/app.rs:7448
 msgid "This video opens in your system player"
 msgstr "Este vídeo se abre en el reproductor del sistema"
 
-#: src/app.rs:8072
+#: src/app.rs:8081
 msgid "Copied image"
 msgstr "Imagen copiada"
 
-#: src/app.rs:8075 src/app.rs:8080
+#: src/app.rs:8084 src/app.rs:8089
 msgid "Failed to copy image"
 msgstr "Error al copiar la imagen"
 
-#: src/app.rs:17130
+#: src/app.rs:17139
 msgid "Could not send the edit"
 msgstr "No se pudo enviar la edición"
 
-#: src/app.rs:17133
+#: src/app.rs:17142
 msgid "The edit was sent but could not be saved locally"
 msgstr "La edición se envió, pero no se pudo guardar en este equipo"
 

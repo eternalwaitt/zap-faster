@@ -2952,8 +2952,8 @@ pub fn apply_flags(app: &mut App, page: Option<&str>) {
             "voice-transcript" => {
                 if let Some(conversation) = app
                     .open_chat
-                    .as_ref()
-                    .and_then(|chat| app.conversations.get_mut(chat))
+                    .clone()
+                    .and_then(|chat| app.conversations.get_mut(&chat))
                 {
                     conversation.transcripts.insert(
                         "ada-voice".into(),

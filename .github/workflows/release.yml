@@ -9,6 +9,7 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
+  CXXFLAGS_aarch64_pc_windows_msvc: /EHsc
   # Baked into the binary by settings.rs; releases built without the
   # secret simply ship keyless and the picker asks for one.
   ZAPFAST_GIPHY_KEY: ${{ secrets.ZAPFAST_GIPHY_KEY || secrets.FASTSAPP_GIPHY_KEY }}

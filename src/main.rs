@@ -479,9 +479,9 @@ fn native_options(
             "Zap Faster"
         })
         .with_app_id(if demo {
-            "zapfast-demo".to_owned()
+            "zap-faster-demo".to_owned()
         } else {
-            std::env::var("FLATPAK_ID").unwrap_or_else(|_| "zapfast".to_owned())
+            std::env::var("FLATPAK_ID").unwrap_or_else(|_| "zap-faster".to_owned())
         });
     // The remembered size and position, from the settings. eframe's own
     // stored window (when present from an earlier version) still wins over
@@ -503,7 +503,7 @@ fn native_options(
         .with_title_shown(false);
     eframe::NativeOptions {
         viewport,
-        persistence_path: demo_persistence,
+        persistence_path: demo_persistence.or_else(|| eframe::storage_dir("zapfast")),
         // Do not restore window size during fixed-size screenshot runs.
         persist_window: !demo,
         ..Default::default()

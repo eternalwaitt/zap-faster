@@ -4,7 +4,7 @@
 <dict>
     <key>CFBundleName</key><string>Zap Faster</string>
     <key>CFBundleDisplayName</key><string>Zap Faster</string>
-    <!-- Keep the installed app identity across the rename. -->
+    <!-- Independent fork bundle identity; archive/keyring identities remain compatible. -->
     <key>CFBundleIdentifier</key><string>io.github.eternalwaitt.ZapFaster</string>
     <key>CFBundleExecutable</key><string>zap-faster</string>
     <key>CFBundleIconFile</key><string>zap-faster</string>

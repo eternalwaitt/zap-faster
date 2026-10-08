@@ -84,7 +84,7 @@ Snapshot: 2026-10-08. Upstream baseline: `df01459`. This is an explicit review q
 
 ## Our already merged and closed PRs
 
-Own PRs #280, #282, #283, #339, #343 and #384 are included in the upstream baseline. The 14 own open PRs are imported above. Closed [#284](https://github.com/crmne/zapfast/pull/284) is also imported with account-safe local Whisper inference and screen-privacy adaptation. Automatic transcription remains off by default.
+Own PRs #280, #282, #283, #339, #343 and #384 are included in the upstream baseline. The 14 own open PRs are imported above. Closed [#284](https://github.com/crmne/zapfast/pull/284), source head `366015a76152`, is also imported with account-safe local Whisper inference and screen-privacy adaptation. Automatic transcription remains off by default.
 
 ## Upstream issues
 

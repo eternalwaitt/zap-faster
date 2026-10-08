@@ -19,7 +19,7 @@
   <launchable type="desktop-id">io.github.eternalwaitt.ZapFaster.desktop</launchable>
   <url type="homepage">https://github.com/eternalwaitt/zap-faster/</url>
   <url type="bugtracker">https://github.com/eternalwaitt/zap-faster/issues</url>
-  <url type="help">https://github.com/eternalwaitt/zap-faster/getting-started/</url>
+  <url type="help">https://github.com/eternalwaitt/zap-faster/blob/main/docs/_guide/getting-started.md</url>
   <url type="vcs-browser">https://github.com/eternalwaitt/zap-faster</url>
   <screenshots>
     <screenshot type="default">
@@ -37,38 +37,8 @@
     <control>keyboard</control>
   </supports>
   <releases>
-    <release version="0.19.0" date="2026-10-03">
-      <url>https://github.com/eternalwaitt/zap-faster/releases/tag/v0.19.0</url>
-    </release>
-    <release version="0.18.2" date="2026-09-30">
-      <url>https://github.com/eternalwaitt/zap-faster/releases/tag/v0.18.2</url>
-    </release>
-    <release version="0.18.1" date="2026-09-30">
-      <url>https://github.com/eternalwaitt/zap-faster/releases/tag/v0.18.1</url>
-    </release>
-    <release version="0.17.0" date="2026-09-26">
-      <url>https://github.com/eternalwaitt/zap-faster/releases/tag/v0.17.0</url>
-    </release>
-    <release version="0.16.5" date="2026-09-25">
-      <url>https://github.com/eternalwaitt/zap-faster/releases/tag/v0.16.5</url>
-    </release>
-    <release version="0.16.4" date="2026-09-25">
-      <url>https://github.com/eternalwaitt/zap-faster/releases/tag/v0.16.4</url>
-    </release>
-    <release version="0.16.3" date="2026-09-25">
-      <url>https://github.com/eternalwaitt/zap-faster/releases/tag/v0.16.3</url>
-    </release>
-    <release version="0.16.2" date="2026-09-24">
-      <url>https://github.com/eternalwaitt/zap-faster/releases/tag/v0.16.2</url>
-    </release>
-    <release version="0.16.1" date="2026-09-24">
-      <url>https://github.com/eternalwaitt/zap-faster/releases/tag/v0.16.1</url>
-    </release>
-    <release version="0.16.0" date="2026-09-24">
-      <url>https://github.com/eternalwaitt/zap-faster/releases/tag/v0.16.0</url>
-    </release>
-    <release version="0.13.1" date="2026-09-14">
-      <url>https://github.com/eternalwaitt/zap-faster/releases/tag/v0.13.1</url>
+    <release version="0.20.0" date="2026-10-08">
+      <url>https://github.com/eternalwaitt/zap-faster/releases/tag/v0.20.0</url>
     </release>
   </releases>
 </component>

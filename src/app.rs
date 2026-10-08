@@ -2939,6 +2939,14 @@ impl App {
             }
             Event::MessageUpdated(message) => {
                 let message = *message;
+                let id = message.id.clone();
+                let keep_transcript = matches!(
+                    message.content,
+                    Content::Audio {
+                        voice_note: true,
+                        ..
+                    }
+                );
                 if let Some(conversation) = self.conversations.get_mut(&message.chat)
                     && let Some(existing) = conversation.message_mut(&message.id)
                 {
@@ -2967,10 +2975,6 @@ impl App {
                         {
                             media.state = state;
                         }
-                        if !keep_transcript {
-                            conversation.transcripts.remove(&id);
-                            conversation.transcribing.remove(&id);
-                        }
                     }
                     if let (Some(state), Some(media)) = (state, existing.content.media_mut()) {
                         media.state = state;
@@ -2984,6 +2988,11 @@ impl App {
                     ) = (motion_state, &mut existing.content)
                     {
                         motion.state = state;
+                    }
+                    if !keep_transcript {
+                        conversation.transcripts.remove(&id);
+                        conversation.transcribing.remove(&id);
+                        conversation.transcription_progress.remove(&id);
                     }
                 }
             }

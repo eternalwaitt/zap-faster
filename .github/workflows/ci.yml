@@ -100,6 +100,10 @@ jobs:
           screencapture -x "$RUNNER_TEMP/zap-faster-window.png" || true
           wait "$demo_pid"
           test -s "$RUNNER_TEMP/zap-faster-content.png"
+          for page in media-album forward-review voice-transcript; do
+            target/debug/zap-faster --demo --demo-page "$page" --demo-shot "$RUNNER_TEMP/zap-faster-$page.png" --demo-shot-delay 1200
+            test -s "$RUNNER_TEMP/zap-faster-$page.png"
+          done
       - name: macOS preview
         if: runner.os == 'macOS'
         uses: actions/upload-artifact@v7

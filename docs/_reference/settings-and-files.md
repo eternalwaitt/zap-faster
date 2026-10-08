@@ -6,7 +6,7 @@ nav_order: 0
 
 ## File locations
 
-ZapFast follows each platform's conventions. Each linked number has its own
+Zap Faster follows each platform's conventions. Each linked number has its own
 folder, `<id>` below, so files, caches, and keys never mix between numbers.
 On Linux:
 
@@ -24,8 +24,8 @@ On Linux:
 | Crash log | `~/.local/state/zapfast/panic.log` | Safe to delete |
 
 Back up the archive if you need its history. WhatsApp sends only recent
-history to a new device, although ZapFast can request some older messages from
-the phone. Clearing the media cache makes ZapFast download attachments again.
+history to a new device, although Zap Faster can request some older messages from
+the phone. Clearing the media cache makes Zap Faster download attachments again.
 Expired attachments may still be available through the phone.
 **Settings > Files > Change…** sends new downloads to another folder, leaving
 earlier ones in place.
@@ -37,16 +37,16 @@ On macOS, settings, state, and the logs are in
 `%LOCALAPPDATA%\paolino\zapfast\data`, and the caches in
 `%LOCALAPPDATA%\paolino\zapfast\cache`.
 
-On first start, ZapFast moves the corresponding `fastsapp` directories (or
+On first start, Zap Faster moves the corresponding `fastsapp` directories (or
 `fastwhatsapp` from earlier versions), including the session, archive, saved
-stickers, and window state. Existing ZapFast directories are never overwritten.
-Quit FastsApp first; launching ZapFast while it is running brings the existing
+stickers, and window state. Existing Zap Faster directories are never overwritten.
+Quit FastsApp first; launching Zap Faster while it is running brings the existing
 window forward. A single-number setup from before 0.19 moves into
 `accounts/1/` on first start, keyring key included; if that cannot finish (a
-locked keyring, or a folder already in the way), ZapFast stops without moving
+locked keyring, or a folder already in the way), Zap Faster stops without moving
 anything and says why in its log.
 
-On Linux and macOS, ZapFast restricts its configuration, state, and cache
+On Linux and macOS, Zap Faster restricts its configuration, state, and cache
 directories to your user (`0700`) and stops at startup if it cannot. Windows
 uses the permissions inherited from your user profile.
 
@@ -59,7 +59,7 @@ Credential Manager. Back up both the archive and its keyring entry: copying
 only `archive.db` to another computer is not enough.
 
 If the keyring is locked or unavailable, unlock it and click **Retry**;
-ZapFast keeps the archive intact and waits before connecting. It never saves
+Zap Faster keeps the archive intact and waits before connecting. It never saves
 a replacement plaintext archive.
 
 A missing key is different from a locked keyring. Restore the original
@@ -68,7 +68,7 @@ creating new credentials will not help: neither can decrypt the existing
 archive. If the key cannot come back, **Start over…** renames the unreadable
 archive to `archive-unreadable-<date>.db`, forgets the linked session, and
 shows the linking screen; linking again brings recent history back from your
-phone. Remove the old ZapFast entry under **Linked devices** on the phone
+phone. Remove the old Zap Faster entry under **Linked devices** on the phone
 afterwards.
 
 Only the archive and its SQLite journal are encrypted. Session keys,
@@ -92,7 +92,7 @@ name or description, in the interface language or in English.
 - **Theme**: dark, light, follow the system, or a local JSON palette from the
   themes folder. See [Making a theme]({{ '/themes/' | relative_url }}).
 - **Interface font**: the system typeface or Inter.
-- **Emoji style**: use the platform emoji font (with bundled Noto fallback), or bundled Noto Color Emoji only. Restart ZapFast after changing this setting. The choice affects rendering on this computer and does not change the emoji sent in messages.
+- **Emoji style**: use the platform emoji font (with bundled Noto fallback), or bundled Noto Color Emoji only. Restart Zap Faster after changing this setting. The choice affects rendering on this computer and does not change the emoji sent in messages.
 - **Wallpaper**: WhatsApp's light and dark chat wallpaper colours, with or
   without doodles.
 - **Zoom**: interface scale, also `Ctrl+Plus`, `Ctrl+Minus` and `Ctrl+0`.
@@ -109,7 +109,7 @@ name or description, in the interface language or in English.
   while working through unanswered chats. Off by default, so sending scrolls
   the chat list to the top. Chat order and scrolling inside a conversation
   are unchanged.
-- **Restore last open chat**: on by default. When off, ZapFast starts on the
+- **Restore last open chat**: on by default. When off, Zap Faster starts on the
   chat list with no conversation open, but still remembers the last chat for
   the next launch after you turn this back on.
 - **Download files automatically**: attachments up to 64 MiB download as they
@@ -149,17 +149,17 @@ name or description, in the interface language or in English.
 - **Last seen**, **Online**, **Profile photo**, **About**, **Groups**, **Read
   receipts**, **Calls**: your WhatsApp account privacy, stored on WhatsApp's
   servers and shared with your phone. They can be changed while connected.
-- **App lock**: hide ZapFast behind a password. See [App lock](#app-lock).
+- **App lock**: hide Zap Faster behind a password. See [App lock](#app-lock).
 
 **System**
 
-- **Keep running when the window closes**: keep ZapFast linked in the tray.
+- **Keep running when the window closes**: keep Zap Faster linked in the tray.
 - **Start at login**: start in the tray without a window, where the platform
   supports it.
 - **Check for updates**: ask GitHub once a day whether a newer release exists.
 - **Download updates automatically**: download and verify a new release in the
   background; restarting stays your choice. Package managers and Flatpak update
-  ZapFast themselves.
+  Zap Faster themselves.
 - **Proxy**: for the WhatsApp connection, media, profile pictures, GIF search,
   Signal sticker imports, and update checks. It accepts `socks5h://host:port`
   (the proxy resolves names, as Tor expects), `socks5://host:port`, and
@@ -182,7 +182,7 @@ playback speed, and the chat list and search pane widths.
 
 Development builds also remember the window's size, position, and maximized
 state in `settings.json`, including when reopening from the tray or a
-notification. On Wayland the compositor controls placement, so ZapFast keeps
+notification. On Wayland the compositor controls placement, so Zap Faster keeps
 the size without choosing the position. These window changes and **Keep chats
 archived** are not yet included in 0.19.0.
 
@@ -199,10 +199,10 @@ the one above: it stays on only if both were on.
 ## App lock
 
 Like WhatsApp Web's screen lock, **Settings > Privacy > App lock** hides
-ZapFast behind a password of at least six characters. ZapFast then starts
+Zap Faster behind a password of at least six characters. Zap Faster then starts
 locked and locks again after 1 minute, 15 minutes (the default), or 1 hour
 without input, a choice under **Lock after**; time hidden in the tray counts.
-**Lock ZapFast** in the tray menu and `Ctrl+Shift+L` lock it at once.
+**Lock Zap Faster** in the tray menu and `Ctrl+Shift+L` lock it at once.
 
 While locked, the window shows only the lock screen. Messages keep arriving
 but stay unread, and notifications say only "New message", without the chat,
@@ -222,7 +222,7 @@ opens the other.
 
 ## Updates
 
-With **Check for updates** on, ZapFast asks GitHub once a day for a newer
+With **Check for updates** on, Zap Faster asks GitHub once a day for a newer
 release. **Update** in the banner downloads and verifies it, and **Restart to
 update** installs it when convenient. Downloads are checked against the
 release's SHA-256 checksums, whose manifest must carry a valid Ed25519
