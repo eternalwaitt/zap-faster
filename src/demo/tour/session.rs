@@ -79,6 +79,55 @@ pub fn respond(app: &mut App) {
                     .collect();
                 append(app, row);
             }
+            Command::InspectPicture { index, path } => {
+                let size = std::fs::read(&path)
+                    .map_err(|error| error.to_string())
+                    .and_then(|bytes| crate::backend::picture_edit::inspect(&bytes));
+                match size {
+                    Ok((width, height)) => {
+                        app.picture_edit = Some(crate::model::PictureEdit::new(
+                            index,
+                            crate::model::PictureSource::File(path),
+                            width,
+                            height,
+                        ));
+                    }
+                    Err(error) => app.toast_error(error),
+                }
+            }
+            Command::ApplyPictureEdit {
+                index,
+                source,
+                width,
+                height,
+                crop,
+                turns,
+            } => {
+                // The same work the worker would do, on this thread instead.
+                let written = crate::backend::picture_edit::write(
+                    &source,
+                    width,
+                    height,
+                    crop,
+                    turns,
+                    &app.dirs.media_cache_dir().join("edited"),
+                );
+                match written {
+                    Ok(path) => {
+                        if index < app.pending.len() {
+                            app.pending[index] = crate::app::Pending::File(path.clone());
+                        }
+                        if let Some(origin) = app.picture_applying.take() {
+                            app.picture_origins.insert(path, origin);
+                        }
+                    }
+                    Err(error) => {
+                        app.picture_applying = None;
+                        app.toast_error(error);
+                    }
+                }
+                app.picture_edit = None;
+            }
             Command::SendSticker {
                 chat,
                 path,

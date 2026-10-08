@@ -529,6 +529,16 @@ pub struct App {
     pub sticker_pack_name: String,
     /// The picture being made into a sticker.
     pub sticker_draft: Option<crate::model::StickerDraft>,
+    /// The staged picture being cropped, while the cropper is open.
+    pub picture_edit: Option<crate::model::PictureEdit>,
+    /// Where the picture being written came from, for when it lands.
+    pub picture_applying: Option<crate::model::PictureOrigin>,
+    /// Where each cropped staged file came from, by the path it was written to.
+    pub picture_origins: std::collections::HashMap<std::path::PathBuf, crate::model::PictureOrigin>,
+    /// The pixels of a pasted picture being cropped again, keyed by the buffer
+    /// they came from. Cropping a pasted picture leaves a file where the strip
+    /// had the pixels, so the cropper has to draw from the buffer itself.
+    pub picture_texture: Option<(usize, egui::TextureHandle)>,
     /// A pack shared in a chat, being viewed: the pack and its publisher.
     pub sticker_preview: Option<(StickerPack, String)>,
     /// Whether the viewed pack is still downloading.
@@ -1128,6 +1138,10 @@ impl App {
             sticker_preview: None,
             sticker_preview_pending: false,
             sticker_draft: None,
+            picture_edit: None,
+            picture_applying: None,
+            picture_origins: Default::default(),
+            picture_texture: None,
             scrolling: fastframe_scroll::Scrolling::default(),
             scroll_route: ScrollRoute::default(),
             page: Page::Chats,
@@ -3083,6 +3097,42 @@ impl App {
                 if live {
                     self.picker = None;
                     self.dialog = Some(Dialog::StickerMaker);
+                }
+            }
+            Event::PictureInspected { index, result } => match result {
+                Ok((width, height)) => {
+                    // The attachment may have been removed while the size was
+                    // being read, so it is looked up again rather than assumed.
+                    let source = self.pending.get(index).and_then(|item| match item {
+                        Pending::File(path) => Some(path.clone()),
+                        Pending::Picture { .. } => None,
+                    });
+                    if let Some(path) = source {
+                        self.picture_edit = Some(crate::model::PictureEdit::new(
+                            index,
+                            crate::model::PictureSource::File(path),
+                            width,
+                            height,
+                        ));
+                    }
+                }
+                Err(error) => self.toast_error(error),
+            },
+            Event::PictureEdited { index, result } => {
+                self.picture_edit = None;
+                match result {
+                    Ok(path) => {
+                        if index < self.pending.len() {
+                            self.pending[index] = Pending::File(path.clone());
+                        }
+                        if let Some(origin) = self.picture_applying.take() {
+                            self.picture_origins.insert(path, origin);
+                        }
+                    }
+                    Err(error) => {
+                        self.picture_applying = None;
+                        self.toast_error(error);
+                    }
                 }
             }
             Event::StickerPackPreview(result) => {
@@ -5349,6 +5399,65 @@ impl App {
                     self.pending.remove(index);
                 }
             }
+            Action::EditPicture(index) => match self.pending.get(index) {
+                Some(Pending::Picture {
+                    width,
+                    height,
+                    rgba,
+                    ..
+                }) => {
+                    self.picture_edit = Some(crate::model::PictureEdit::new(
+                        index,
+                        crate::model::PictureSource::Pasted(rgba.clone()),
+                        *width as u32,
+                        *height as u32,
+                    ));
+                }
+                Some(Pending::File(path)) => {
+                    // A picture that was cropped before opens on the original
+                    // with the crop it had, so cropping it again does not
+                    // stack another lossy pass on the one before it.
+                    let origin = self.picture_origins.get(path).cloned();
+                    if let Some(origin) = origin {
+                        self.picture_edit = Some(crate::model::PictureEdit {
+                            index,
+                            source: origin.source,
+                            width: origin.width,
+                            height: origin.height,
+                            crop: origin.crop,
+                            turns: origin.turns,
+                        });
+                    } else if Pending::is_picture_file(path) {
+                        self.backend.send(Command::InspectPicture {
+                            index,
+                            path: path.clone(),
+                        });
+                    }
+                }
+                None => {}
+            },
+            Action::ApplyPictureEdit => {
+                if let Some(edit) = self.picture_edit.take() {
+                    // Held until the file lands, so it can be filed under the
+                    // path the cropped picture is written to.
+                    self.picture_applying = Some(crate::model::PictureOrigin {
+                        source: edit.source.clone(),
+                        width: edit.width,
+                        height: edit.height,
+                        crop: edit.crop,
+                        turns: edit.turns,
+                    });
+                    self.backend.send(Command::ApplyPictureEdit {
+                        index: edit.index,
+                        source: edit.source,
+                        width: edit.width,
+                        height: edit.height,
+                        crop: edit.crop,
+                        turns: edit.turns,
+                    });
+                }
+            }
+            Action::CancelPictureEdit => self.picture_edit = None,
             Action::ClearPending => self.pending.clear(),
             Action::PlayVoice { message, path } => self.play_voice(message, path),
             Action::PlayVideo { message, path } => self.play_video(message, path),
