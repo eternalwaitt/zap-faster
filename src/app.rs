@@ -2270,7 +2270,7 @@ impl App {
     }
 
     /// Visible chats filtered by search, archive state, and the chat filter,
-    /// with pinned chats first.
+    /// with drafts first, then pinned chats.
     /// Locked chats only appear inside the locked folder.
     pub fn visible_chats(&self) -> Vec<&Chat> {
         let needle = crate::util::search_key(self.search.trim());
@@ -2304,20 +2304,23 @@ impl App {
                     })
             })
             .collect();
-        // The Favorites chip keeps the phone's order below the pinned chats.
+        // Within each draft group, preserve pin and phone Favorites order.
         let favorites_order = self.favorites_order();
         chats.sort_by(|a, b| {
-            b.pinned.cmp(&a.pinned).then_with(|| {
-                if a.pinned && b.pinned {
-                    b.pinned_at.cmp(&a.pinned_at).then(a.id.cmp(&b.id))
-                } else if favorites_order {
-                    a.favorite_position
-                        .cmp(&b.favorite_position)
-                        .then(a.id.cmp(&b.id))
-                } else {
-                    b.last_activity.cmp(&a.last_activity).then(a.id.cmp(&b.id))
-                }
-            })
+            self.has_draft(&b.id)
+                .cmp(&self.has_draft(&a.id))
+                .then_with(|| b.pinned.cmp(&a.pinned))
+                .then_with(|| {
+                    if a.pinned && b.pinned {
+                        b.pinned_at.cmp(&a.pinned_at).then(a.id.cmp(&b.id))
+                    } else if favorites_order {
+                        a.favorite_position
+                            .cmp(&b.favorite_position)
+                            .then(a.id.cmp(&b.id))
+                    } else {
+                        b.last_activity.cmp(&a.last_activity).then(a.id.cmp(&b.id))
+                    }
+                })
         });
         chats
     }
@@ -8433,6 +8436,107 @@ mod tests {
         app.restore_refused_edit();
         assert_eq!(app.composer, "Latest correction");
         assert!(app.refused_edits.is_empty());
+    }
+
+    /// Drafts override pins without rewriting message activity, and clearing them restores normal order.
+    #[test]
+    fn drafts_rise_above_pins_and_return_to_normal_order_when_cleared() {
+        let mut app = app();
+        for (id, activity, pinned) in [("old", 1, false), ("recent", 100, false), ("pin", 50, true)]
+        {
+            let mut chat = Chat::new(id.into(), id.into());
+            chat.last_activity = activity;
+            chat.pinned = pinned;
+            app.chats.push(chat);
+        }
+        let order = |app: &App| {
+            app.visible_chats()
+                .iter()
+                .map(|chat| chat.id.clone())
+                .collect::<Vec<_>>()
+        };
+        app.drafts.insert("old".into(), "Unsent text".into());
+        assert_eq!(order(&app), ["old", "pin", "recent"]);
+        app.open_chat("old".into());
+        assert_eq!(order(&app), ["old", "pin", "recent"]);
+        app.composer = " \n ".into();
+        assert_eq!(
+            order(&app),
+            ["pin", "recent", "old"],
+            "active blank text overrides saved text"
+        );
+        app.composer = "Editing an existing message".into();
+        app.editing = Some("sent-message".into());
+        assert!(!app.has_draft("old"));
+        app.editing = None;
+        app.composer.clear();
+        app.stage_files(vec!["Synthetic document.pdf".into()]);
+        assert_eq!(
+            app.draft_preview("old").as_deref(),
+            Some("Synthetic document.pdf")
+        );
+        assert_eq!(order(&app), ["old", "pin", "recent"]);
+        app.open_chat("recent".into());
+        assert!(
+            app.has_draft("old"),
+            "attachment-only draft survives switching"
+        );
+        assert_eq!(order(&app), ["old", "pin", "recent"]);
+        app.open_chat("old".into());
+        app.apply(Action::ClearPending, &egui::Context::default());
+        assert!(!app.has_draft("old"));
+        assert_eq!(order(&app), ["pin", "recent", "old"]);
+        assert_eq!(
+            app.chat("old").unwrap().last_activity,
+            1,
+            "drafts never rewrite message activity"
+        );
+    }
+
+    /// Images without captions count as drafts while Favorites, search and locked-chat boundaries remain intact.
+    #[test]
+    fn draft_order_preserves_filters_and_favorites_and_images_count_as_drafts() {
+        let mut app = app();
+        for (id, position) in [("first", 0), ("second", 1), ("hidden", 2)] {
+            let mut chat = Chat::new(id.into(), id.into());
+            chat.favorite = true;
+            chat.favorite_position = position;
+            chat.locked = id == "hidden";
+            app.chats.push(chat);
+        }
+        app.chat_filter = ChatFilter::Favorites;
+        app.drafts.insert("second".into(), "Saved draft".into());
+        app.drafts.insert("hidden".into(), "Private draft".into());
+        assert_eq!(
+            app.visible_chats()
+                .iter()
+                .map(|chat| chat.id.as_str())
+                .collect::<Vec<_>>(),
+            ["second", "first"]
+        );
+        app.drafts.remove("second");
+        assert_eq!(app.visible_chats()[0].id, "first");
+        app.open_chat("second".into());
+        app.apply(
+            Action::PasteImage {
+                width: 1,
+                height: 1,
+                rgba: vec![0; 4],
+            },
+            &egui::Context::default(),
+        );
+        assert!(app.has_draft("second"));
+        assert_eq!(app.draft_preview("second").as_deref(), Some("Image"));
+        assert_eq!(app.visible_chats()[0].id, "second");
+        app.open_chat("first".into());
+        assert_eq!(app.draft_preview("second").as_deref(), Some("Image"));
+        app.search = "first".into();
+        assert_eq!(
+            app.visible_chats().len(),
+            1,
+            "draft promotion respects search"
+        );
+        assert_eq!(app.visible_chats()[0].id, "first");
     }
 
     /// Identical chat IDs across accounts retain separate files, captions, mentions and reply quotes.

@@ -36,6 +36,9 @@ ZapFast is running. Quitting discards them. See [Attachments](docs/_guide/using-
 Settings offers **Keep chat list position after sending**. See
 [Settings & files](docs/_guide/settings-and-files.md) for how it affects the chat list.
 
+Chats with unsent text or attachments appear first, with a draft label. See
+[Writing](https://zapfast.rocks/using-zapfast/#writing) for draft retention and privacy.
+
 ## Install
 
 ```sh
