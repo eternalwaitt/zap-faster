@@ -107,6 +107,9 @@ name or description, in the interface language or in English.
   while working through unanswered chats. Off by default, so sending scrolls
   the chat list to the top. Chat order and scrolling inside a conversation
   are unchanged.
+- **Restore last open chat**: on by default. When off, ZapFast starts on the
+  chat list with no conversation open, but still remembers the last chat for
+  the next launch after you turn this back on.
 - **Download files automatically**: attachments up to 64 MiB download as they
   come into view. When off, click one to download it. Visible stickers still
   download automatically. The same 64 MiB limit applies to manual downloads.

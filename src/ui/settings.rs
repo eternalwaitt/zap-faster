@@ -409,6 +409,14 @@ fn sections(app: &App) -> Vec<Section> {
         ),
         |settings| &mut settings.keep_chat_list_position,
     );
+    chats.toggle(
+        translated(locale, "Restore last open chat"),
+        translated(
+            locale,
+            "When off, start on the chat list. Your last chat stays remembered.",
+        ),
+        |settings| &mut settings.restore_last_chat,
+    );
     chats.account_toggle(
         translated(locale, "Download files automatically"),
         translated(
