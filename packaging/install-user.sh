@@ -45,8 +45,9 @@ installed="$bin_dir/zapfast"
 install -Dm755 "$binary" "$installed"
 install -Dm644 "$here/icons/zapfast.svg" "$icons_dir/zapfast.svg"
 mkdir -p "$apps_dir"
-# The one line that changes: `Exec=zapfast %u` uses the path just installed,
-# so the entry works whether or not ~/.local/bin is on the session's PATH.
+# The lines that change: `Exec=zapfast`, and the actions' `Exec=zapfast <verb>`,
+# name the path just installed, so the entry works whether or not ~/.local/bin
+# is on the session's PATH. Arguments after the binary are kept.
 #
 # A simple absolute path stays unquoted: xdg-open's generic desktop handler
 # treats quotes as part of the command name. Paths with reserved characters
@@ -71,10 +72,10 @@ EXEC_PATH="$installed" awk '
     }
     return out "\""
   }
-  /^Exec=/ {
+  /^Exec=zapfast( |$)/ {
     path = ENVIRON["EXEC_PATH"]
     if (path !~ /^\/[A-Za-z0-9_.\/-]+$/) path = quote(path)
-    print "Exec=" path " %u"
+    print "Exec=" path substr($0, 13)
     next
   }
   { print }

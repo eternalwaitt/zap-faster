@@ -1606,6 +1606,7 @@ impl App {
             match command {
                 ControlCommand::Show => self.actions.push(Action::ShowWindow),
                 ControlCommand::ReloadThemes => self.actions.push(Action::ReloadThemes),
+                ControlCommand::Quit => self.actions.push(Action::Quit),
                 ControlCommand::Ping => {}
                 ControlCommand::OpenChatLink(link) => self.open_chat_link(link),
             }
