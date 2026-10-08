@@ -26,6 +26,8 @@ https://github.com/user-attachments/assets/2bf86b54-45fc-4add-8de7-c426c3cdad9b
 Development builds also show group descriptions in group info, with selectable
 text and scrolling for longer descriptions. See [Using ZapFast](docs/_guide/using-zapfast.md#chats).
 
+Phone numbers in message text open actions to start a chat or copy the displayed number.
+
 **Want Spotify just as fast and native?** [Spotifast](https://spotifast.rocks)
 is ZapFast's sibling. Both are built on
 [fastframe](https://github.com/crmne/fastframe).
@@ -57,7 +59,8 @@ source, see [Getting started](https://zapfast.rocks/getting-started/).
 ## Developing
 
 ```sh
-cargo run --features demo -- --demo   # offline sample chats, no WhatsApp connection
+cargo run --features demo -- --demo            # offline sample chats, no WhatsApp connection
+cargo run --features demo -- --demo-page phone-menu
 ```
 
 [CONTRIBUTING.md](CONTRIBUTING.md) covers issues, pull requests, and checks;
