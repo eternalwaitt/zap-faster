@@ -392,7 +392,8 @@ eight hours, one week, or indefinitely. These changes also apply on your
 phone. **Delete chat** in the same menu and **Clear chat** in the chat
 header's menu need a connection: the phone acts first, and the chat leaves
 this computer once it confirms. Groups and channels can be left from the same
-menu, keeping their history here.
+menu, keeping their history here. `Ctrl+E` (Command+E on macOS) archives the
+open chat, or unarchives it from **Archived**, as in WhatsApp.
 
 Archived chats stay archived when new messages arrive. **Development builds**
 add **Keep chats archived** in Settings: turn it off to have a new message,
