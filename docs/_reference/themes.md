@@ -87,3 +87,5 @@ appearance.
 
 On Omarchy, **Follow system** already uses your current Omarchy colours, and
 Zap Faster follows each theme change as it happens.
+
+Zap Faster uses its own Omarchy template and hook names. The hook deliberately writes to the existing `zapfast/themes` configuration directory so existing custom palettes and preferences remain available.

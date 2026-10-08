@@ -3,8 +3,8 @@
 set -euo pipefail
 
 # These overrides also let the hook be tested without changing the desktop.
-theme_dir=${ZAPFAST_OMARCHY_THEME_DIR:-$HOME/.local/state/omarchy/current/theme}
-themes_dir=${ZAPFAST_THEMES_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/zap-faster/themes}
+theme_dir=${ZAP_FASTER_OMARCHY_THEME_DIR:-$HOME/.local/state/omarchy/current/theme}
+themes_dir=${ZAP_FASTER_THEMES_DIR:-${XDG_CONFIG_HOME:-$HOME/.config}/zapfast/themes}
 source_file=$theme_dir/zap-faster.json
 
 # A theme without a generated palette leaves the last accepted colors alone.

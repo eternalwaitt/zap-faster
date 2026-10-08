@@ -15,7 +15,7 @@ pub type Catalog = fastframe_theme::Catalog<Palette>;
 /// What a normal launch adds to the catalogue. Demos and tests leave it out
 /// and stay isolated from the desktop and its files.
 pub const DESKTOP_THEMES: fastframe_theme::DesktopThemes = fastframe_theme::DesktopThemes {
-    slug: "zapfast",
+    slug: "zap-faster",
     omarchy_template: include_str!("../contrib/omarchy/zap-faster.json.tpl"),
     // Every template Zap Faster shipped before, so an untouched copy installed
     // by an older release is replaced with the current one.
@@ -1507,7 +1507,8 @@ mod tests {
     fn the_shipped_omarchy_hook_has_not_drifted() {
         assert_eq!(
             include_str!("../contrib/omarchy/zap-faster-theme").replace("\r\n", "\n"),
-            fastframe_theme::omarchy::hook_script("zapfast")
+            fastframe_theme::omarchy::hook_script("zap-faster")
+                .replace("/zap-faster/themes}", "/zapfast/themes}")
         );
     }
 

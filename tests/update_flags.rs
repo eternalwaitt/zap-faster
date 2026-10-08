@@ -13,6 +13,11 @@ use std::process::{Command, Output};
 fn zapfast(home: &Path, arguments: &[&str]) -> Output {
     let mut command = Command::new(env!("CARGO_BIN_EXE_zap-faster"));
     command.args(arguments).env_remove("RUST_LOG");
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        command.creation_flags(0x0800_0000);
+    }
     for variable in [
         "HOME",
         "USERPROFILE",
@@ -67,11 +72,11 @@ fn update_receipt_and_error_are_taken_off_the_command_line() {
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
     let stderr = String::from_utf8_lossy(&output.stderr);
-    // The helper of every earlier release checks this exact answer.
+    // Zap Faster helpers check the fork binary name and version.
     assert!(output.status.success(), "stderr: {stderr}");
     assert_eq!(
         stdout.trim(),
-        format!("zapfast {}", env!("CARGO_PKG_VERSION")),
+        format!("zap-faster {}", env!("CARGO_PKG_VERSION")),
         "stderr: {stderr}"
     );
     assert_eq!(entries(home.path()), Vec::<String>::new());

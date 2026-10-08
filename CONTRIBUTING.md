@@ -115,3 +115,7 @@ fit, maintainability, or security.
 
 By contributing, you agree that your contribution is licensed under the
 project's MIT License.
+
+## Refreshing upstream intake
+
+Run `python .github/scripts/upstream-intake.py --output .cache/upstream-intake.json` with an authenticated GitHub CLI. It saves public PR and issue metadata, highlights unreviewed PRs or changed source heads, and never merges, comments, or changes either repository. Update the ledger after reviewing each change.

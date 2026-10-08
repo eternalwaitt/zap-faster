@@ -14477,6 +14477,7 @@ mod tests {
             }
             app.send_refused(recipient.into(), Some(target), unsent, Refusal::Offline);
             assert!(!app.private_reply_drafts.contains_key(recipient));
+            assert!(!app.attachment_drafts.contains_key(recipient));
             assert!(!app.drafts.contains_key(recipient));
             assert!(app.reply_to.is_none());
             assert!(app.unsent_voice.is_none());
@@ -14530,13 +14531,19 @@ mod tests {
         app.apply(Action::CloseChat, &ctx);
         assert!(app.open_chat.is_none());
         assert!(app.reply_to.is_none());
-        assert_eq!(app.private_reply_drafts.get(recipient), Some(&target));
+        assert_eq!(
+            app.attachment_drafts
+                .get(recipient)
+                .and_then(|draft| draft.quoting.as_ref()),
+            Some(&target)
+        );
         app.open_chat(recipient.into());
         assert_eq!(app.reply_to, Some(target));
         assert_eq!(app.composer, "Private draft");
         app.reply_to = None;
         app.apply(Action::CloseChat, &ctx);
         assert!(!app.private_reply_drafts.contains_key(recipient));
+        assert!(!app.attachment_drafts.contains_key(recipient));
         app.open_chat(recipient.into());
         assert!(app.reply_to.is_none());
     }

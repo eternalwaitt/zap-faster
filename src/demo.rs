@@ -3894,7 +3894,7 @@ mod tests {
             .unwrap()
             .message_mut("ada-link")
             .unwrap();
-        let body = "اتصل على +00 (000) 00000-0000";
+        let body = "اتصل على +1 (555) 0100-123";
         row.content = Content::text(body);
         row.from_me = false;
 
@@ -3968,7 +3968,7 @@ mod tests {
                 _ => None,
             })
             .unwrap();
-        assert_eq!(copied, "+00 (000) 00000-0000");
+        assert_eq!(copied, "+1 (555) 0100-123");
 
         open_menu(&mut app, next, phone_last, egui::Modifiers::SHIFT);
         let message_rect = ctx
@@ -3987,7 +3987,7 @@ mod tests {
                         phone,
                         full_name: None,
                         ..
-                    } if phone == "00000000000000"
+                    } if phone == "15550100123"
                 ))
         );
     }
@@ -13052,7 +13052,10 @@ mod tests {
                     }),
             );
         }
-        assert_eq!(opened, ["https://zapfast.rocks/themes/"]);
+        assert_eq!(
+            opened,
+            ["https://github.com/eternalwaitt/zap-faster/blob/main/docs/_reference/themes.md"]
+        );
     }
 
     /// The chat list is one clickable surface: each row starts where the one

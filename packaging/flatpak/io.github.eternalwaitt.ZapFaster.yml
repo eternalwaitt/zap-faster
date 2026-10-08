@@ -36,6 +36,9 @@ build-options:
   append-path: /usr/lib/sdk/rust-stable/bin
   env:
     CARGO_HOME: /run/build/zap-faster/cargo
+    # The crate ships bindings for its pinned whisper.cpp revision.
+    # The Flatpak sandbox has no libclang, so use those supported bindings.
+    WHISPER_DONT_GENERATE_BINDINGS: '1'
 modules:
   - name: zap-faster
     buildsystem: simple
