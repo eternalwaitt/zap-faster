@@ -1,6 +1,6 @@
 title: Zap Faster
-zapfast_version: "0.19.0"
-release_asset_prefix: zapfast
+zapfast_version: "0.20.0"
+release_asset_prefix: zap-faster
 release_app_name: Zap Faster
 description: A fast, lightweight WhatsApp app for Linux, macOS, and Windows.
 lang: en-US

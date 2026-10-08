@@ -1325,7 +1325,7 @@ mod tests {
         mpsc::UnboundedReceiver<Command>,
     ) {
         let (mut worker, root, _events, commands) = sticker_worker();
-        let store = whatsapp_rust::store::SqliteStore::new(
+        let store = whatsapp_rust::store::SqliteStore::open(
             &root.path().join("session.db").to_string_lossy(),
         )
         .await

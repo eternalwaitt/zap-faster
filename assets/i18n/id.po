@@ -6,7 +6,7 @@ msgstr ""
 "Project-Id-Version: Zap Faster 0.20.0\n"
 "Report-Msgid-Bugs-To: https://github.com/eternalwaitt/zap-faster/issues/new?"
 "template=translation.yml\n"
-"POT-Creation-Date: 2026-10-08 20:13-0300\n"
+"POT-Creation-Date: 2026-10-08 20:28-0300\n"
 "PO-Revision-Date: 2026-09-22 00:00-0300\n"
 "Last-Translator: ZapFast contributors\n"
 "Language-Team: Indonesian\n"
@@ -1537,7 +1537,7 @@ msgstr ""
 msgid "This number is not on WhatsApp"
 msgstr ""
 
-#: src/app.rs:727 src/app.rs:17135
+#: src/app.rs:727 src/app.rs:17170
 #, fuzzy
 msgid "Not connected to WhatsApp"
 msgstr "Tidak terkirim: Zap Faster tidak terhubung ke WhatsApp."
@@ -1576,7 +1576,7 @@ msgstr ""
 "Tidak terkirim: pesan yang Anda balas tidak tersedia di komputer ini. "
 "Batalkan balasan untuk mengirim tanpa kutipan."
 
-#: src/app.rs:4572 src/app.rs:17132
+#: src/app.rs:4572 src/app.rs:17167
 #, fuzzy
 msgid "This message can no longer be edited"
 msgstr "Pesan ini sudah tidak tersedia lagi."
@@ -1599,32 +1599,32 @@ msgstr "Mengirim paket stiker…"
 msgid "You have {limit} labels, the most Zap Faster keeps."
 msgstr "Anda memiliki {limit} label, batas maksimal yang disimpan Zap Faster."
 
-#: src/app.rs:7317
+#: src/app.rs:7318
 msgid "App lock password saved"
 msgstr "Kata sandi kunci aplikasi disimpan"
 
-#: src/app.rs:7325
+#: src/app.rs:7326
 msgid "App lock turned off"
 msgstr "Kunci aplikasi dinonaktifkan"
 
-#: src/app.rs:7448
+#: src/app.rs:7449
 msgid "This video opens in your system player"
 msgstr "Video ini dibuka di pemutar media sistem"
 
-#: src/app.rs:8081
+#: src/app.rs:8082
 msgid "Copied image"
 msgstr "Gambar disalin"
 
-#: src/app.rs:8084 src/app.rs:8089
+#: src/app.rs:8085 src/app.rs:8090
 msgid "Failed to copy image"
 msgstr "Gagal menyalin gambar"
 
-#: src/app.rs:17139
+#: src/app.rs:17174
 #, fuzzy
 msgid "Could not send the edit"
 msgstr "Tidak dapat menggunakan gambar ini"
 
-#: src/app.rs:17142
+#: src/app.rs:17177
 msgid "The edit was sent but could not be saved locally"
 msgstr ""
 

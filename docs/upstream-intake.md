@@ -81,6 +81,8 @@ Snapshot: 2026-10-08. Upstream baseline: `df01459`. This is an explicit review q
 | [#462](https://github.com/crmne/zapfast/pull/462) | Play the sound of WhatsApp's videos | [claudiocp](https://github.com/claudiocp) | `3e3700679859` | Imported: [`46b29be`](https://github.com/eternalwaitt/zap-faster/commit/46b29beb4b7b5d5ca7ea31fdc5d97dcb4d8ffd39) |
 | [#463](https://github.com/crmne/zapfast/pull/463) | Move to whatsapp-rust ee89f5ad so expired downloads stop failing sends | [claudiocp](https://github.com/claudiocp) | `a3f74e14dd36` | Imported: [`a684d1c`](https://github.com/eternalwaitt/zap-faster/commit/a684d1c8ba87f0d9a820324fba9b98b8aa674d1a) |
 | [#465](https://github.com/crmne/zapfast/pull/465) | Play videos at 1.5x and 2x, like voice messages | [claudiocp](https://github.com/claudiocp) | `0aa641157240` | Imported: [`fa3f0aa`](https://github.com/eternalwaitt/zap-faster/commit/fa3f0aa108ecf50962d59e2a85d9e847a11a7b47) |
+| [#467](https://github.com/crmne/zapfast/pull/467) | Skip the window attention request on GNOME | [claudiocp](https://github.com/claudiocp) | `47103ebc4319` | Imported: [`5b63f7a`](https://github.com/eternalwaitt/zap-faster/commit/5b63f7a515e75a9b45c26bd566b0658a859e4efc) |
+| [#468](https://github.com/crmne/zapfast/pull/468) | Fetch the picker's chat stickers a few at a time, without re-uploads | [claudiocp](https://github.com/claudiocp) | `63322bf3a11e` | Imported: [`6b6f6c4`](https://github.com/eternalwaitt/zap-faster/commit/6b6f6c41dd0d42352dabaadc23cdfbbc0609a693) |
 
 ## Our already merged and closed PRs
 
@@ -103,4 +105,6 @@ Imported changes target these reports. Offline regression tests cover the releva
 | [#265: Video Playback without sound](https://github.com/crmne/zapfast/issues/265) | Upstream PR #462 imported above |
 | [#247: Image grouping](https://github.com/crmne/zapfast/issues/247) | Upstream PR #286 imported above |
 
-Reconnect send retries (#452), notification audio routing (#421), large attachments (#316/#386), and sticker rate limiting (#405) remain separate reproduction targets. The protocol update is not proof that every send or 429 issue is fixed.
+Reconnect send retries (#452), notification audio routing (#421), and large attachments (#316/#386) remain separate reproduction targets. Sticker rate limiting (#405) is now addressed by the additional #468 pacing change; live behavior still needs an attended check. The protocol update is not proof that every send or 429 issue is fixed.
+
+The intake refresh also reviewed #467 and #468 after the initial 67-PR snapshot. Both are imported above, for 69 reviewed open PRs and 49 imported open PRs, plus closed #284.

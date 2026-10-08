@@ -6,7 +6,7 @@ msgstr ""
 "Project-Id-Version: Zap Faster 0.20.0\n"
 "Report-Msgid-Bugs-To: https://github.com/eternalwaitt/zap-faster/issues/new?"
 "template=translation.yml\n"
-"POT-Creation-Date: 2026-10-08 20:13-0300\n"
+"POT-Creation-Date: 2026-10-08 20:28-0300\n"
 "PO-Revision-Date: 2026-09-22 00:00-0300\n"
 "Last-Translator: ZapFast contributors\n"
 "Language-Team: French\n"
@@ -1531,7 +1531,7 @@ msgstr "Impossible de vérifier le numéro. Réessayez."
 msgid "This number is not on WhatsApp"
 msgstr "Ce numéro n’est pas sur WhatsApp"
 
-#: src/app.rs:727 src/app.rs:17135
+#: src/app.rs:727 src/app.rs:17170
 msgid "Not connected to WhatsApp"
 msgstr "Non connecté à WhatsApp"
 
@@ -1569,7 +1569,7 @@ msgstr ""
 "Non envoyé : le message auquel vous répondez n’est pas disponible sur cet "
 "ordinateur. Annulez la réponse pour l’envoyer sans citation."
 
-#: src/app.rs:4572 src/app.rs:17132
+#: src/app.rs:4572 src/app.rs:17167
 msgid "This message can no longer be edited"
 msgstr "Ce message ne peut plus être modifié"
 
@@ -1590,31 +1590,31 @@ msgstr "Envoi du pack de stickers…"
 msgid "You have {limit} labels, the most Zap Faster keeps."
 msgstr "Vous avez {limit} étiquettes, le maximum que Zap Faster conserve."
 
-#: src/app.rs:7317
+#: src/app.rs:7318
 msgid "App lock password saved"
 msgstr ""
 
-#: src/app.rs:7325
+#: src/app.rs:7326
 msgid "App lock turned off"
 msgstr ""
 
-#: src/app.rs:7448
+#: src/app.rs:7449
 msgid "This video opens in your system player"
 msgstr "Cette vidéo s'ouvre dans le lecteur du système"
 
-#: src/app.rs:8081
+#: src/app.rs:8082
 msgid "Copied image"
 msgstr "Image copiée"
 
-#: src/app.rs:8084 src/app.rs:8089
+#: src/app.rs:8085 src/app.rs:8090
 msgid "Failed to copy image"
 msgstr "Impossible de copier l'image"
 
-#: src/app.rs:17139
+#: src/app.rs:17174
 msgid "Could not send the edit"
 msgstr "Impossible d’envoyer la modification"
 
-#: src/app.rs:17142
+#: src/app.rs:17177
 msgid "The edit was sent but could not be saved locally"
 msgstr ""
 "La modification a été envoyée, mais n’a pas pu être enregistrée sur cet "

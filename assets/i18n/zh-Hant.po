@@ -5,7 +5,7 @@ msgstr ""
 "Project-Id-Version: Zap Faster 0.20.0\n"
 "Report-Msgid-Bugs-To: https://github.com/eternalwaitt/zap-faster/issues/new?"
 "template=translation.yml\n"
-"POT-Creation-Date: 2026-10-08 20:13-0300\n"
+"POT-Creation-Date: 2026-10-08 20:28-0300\n"
 "PO-Revision-Date: 2026-10-02 18:51+0800\n"
 "Last-Translator: Alang Hsu <alang.hsu@gmail.com>\n"
 "Language-Team: Chinese (Traditional)\n"
@@ -1467,7 +1467,7 @@ msgstr "無法檢查此號碼。請再試一次。"
 msgid "This number is not on WhatsApp"
 msgstr "此號碼未使用 WhatsApp"
 
-#: src/app.rs:727 src/app.rs:17135
+#: src/app.rs:727 src/app.rs:17170
 msgid "Not connected to WhatsApp"
 msgstr "未連線至 WhatsApp"
 
@@ -1504,7 +1504,7 @@ msgid ""
 msgstr ""
 "未送出：您要回覆的訊息在這部電腦上無法使用。取消回覆即可不附帶引用內容送出。"
 
-#: src/app.rs:4572 src/app.rs:17132
+#: src/app.rs:4572 src/app.rs:17167
 msgid "This message can no longer be edited"
 msgstr "已無法編輯此訊息"
 
@@ -1525,31 +1525,31 @@ msgstr "正在傳送貼圖集…"
 msgid "You have {limit} labels, the most Zap Faster keeps."
 msgstr "您已有 {limit} 個標籤，已達 Zap Faster 的上限。"
 
-#: src/app.rs:7317
+#: src/app.rs:7318
 msgid "App lock password saved"
 msgstr "已儲存應用程式鎖密碼"
 
-#: src/app.rs:7325
+#: src/app.rs:7326
 msgid "App lock turned off"
 msgstr "已關閉應用程式鎖"
 
-#: src/app.rs:7448
+#: src/app.rs:7449
 msgid "This video opens in your system player"
 msgstr "此影片會在您的系統播放器中開啟"
 
-#: src/app.rs:8081
+#: src/app.rs:8082
 msgid "Copied image"
 msgstr "已複製圖片"
 
-#: src/app.rs:8084 src/app.rs:8089
+#: src/app.rs:8085 src/app.rs:8090
 msgid "Failed to copy image"
 msgstr "複製圖片失敗"
 
-#: src/app.rs:17139
+#: src/app.rs:17174
 msgid "Could not send the edit"
 msgstr "無法傳送編輯內容"
 
-#: src/app.rs:17142
+#: src/app.rs:17177
 msgid "The edit was sent but could not be saved locally"
 msgstr "已傳送編輯內容，但無法儲存到本機"
 

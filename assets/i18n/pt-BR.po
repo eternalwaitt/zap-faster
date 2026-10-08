@@ -6,7 +6,7 @@ msgstr ""
 "Project-Id-Version: Zap Faster 0.20.0\n"
 "Report-Msgid-Bugs-To: https://github.com/eternalwaitt/zap-faster/issues/new?"
 "template=translation.yml\n"
-"POT-Creation-Date: 2026-10-08 20:13-0300\n"
+"POT-Creation-Date: 2026-10-08 20:28-0300\n"
 "PO-Revision-Date: 2026-09-22 00:00-0300\n"
 "Last-Translator: ZapFast contributors\n"
 "Language-Team: Brazilian Portuguese\n"
@@ -1518,7 +1518,7 @@ msgstr "Não foi possível verificar o número. Tente novamente."
 msgid "This number is not on WhatsApp"
 msgstr "Este número não está no WhatsApp"
 
-#: src/app.rs:727 src/app.rs:17135
+#: src/app.rs:727 src/app.rs:17170
 msgid "Not connected to WhatsApp"
 msgstr "Não conectado ao WhatsApp"
 
@@ -1556,7 +1556,7 @@ msgstr ""
 "Não enviado: a mensagem que você está respondendo não está disponível neste "
 "computador. Cancele a resposta para enviar sem citação."
 
-#: src/app.rs:4572 src/app.rs:17132
+#: src/app.rs:4572 src/app.rs:17167
 msgid "This message can no longer be edited"
 msgstr "Esta mensagem não pode mais ser editada"
 
@@ -1578,31 +1578,31 @@ msgstr "Enviando o pacote de figurinhas…"
 msgid "You have {limit} labels, the most Zap Faster keeps."
 msgstr "Você tem {limit} etiquetas, o máximo que o Zap Faster guarda."
 
-#: src/app.rs:7317
+#: src/app.rs:7318
 msgid "App lock password saved"
 msgstr ""
 
-#: src/app.rs:7325
+#: src/app.rs:7326
 msgid "App lock turned off"
 msgstr ""
 
-#: src/app.rs:7448
+#: src/app.rs:7449
 msgid "This video opens in your system player"
 msgstr "Este vídeo abre no player do sistema"
 
-#: src/app.rs:8081
+#: src/app.rs:8082
 msgid "Copied image"
 msgstr "Imagem copiada"
 
-#: src/app.rs:8084 src/app.rs:8089
+#: src/app.rs:8085 src/app.rs:8090
 msgid "Failed to copy image"
 msgstr "Falha ao copiar imagem"
 
-#: src/app.rs:17139
+#: src/app.rs:17174
 msgid "Could not send the edit"
 msgstr "Não foi possível enviar a edição"
 
-#: src/app.rs:17142
+#: src/app.rs:17177
 msgid "The edit was sent but could not be saved locally"
 msgstr "A edição foi enviada, mas não pôde ser salva neste computador"
 
