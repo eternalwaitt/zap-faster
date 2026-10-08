@@ -9,7 +9,7 @@ use std::time::Duration;
 use tokio::sync::mpsc;
 
 use crate::model::{
-    Chat, ChatId, Contact, Content, Gif, GifError, Message, PollDraft, StickerPack,
+    Chat, ChatId, Contact, Content, Gif, GifError, Message, PollDraft, StickerPack, StorageStats,
 };
 use crate::paths::AccountDirs;
 
@@ -277,6 +277,16 @@ pub enum Command {
         query: String,
         from: Option<i64>,
         until: Option<i64>,
+    },
+    /// Counts and sizes of the downloaded attachments, for Settings. Counting
+    /// the messages is a scan of the whole table, so it is asked for once per
+    /// opening and left out of the refresh that follows a download.
+    StorageStats {
+        messages: bool,
+        /// Which ask this is. An answer that arrives after a newer ask is
+        /// dropped, so the numbers, and the clock that dates them, are the
+        /// ones the reader last asked for.
+        token: u64,
     },
     /// Creates an archive chat before its first message is sent.
     EnsureChat {
@@ -852,6 +862,16 @@ pub enum Event {
         /// Whether the archive held more matches than `messages` carries, so
         /// the pane can say so instead of dropping them silently.
         truncated: bool,
+    },
+    /// Counts and sizes of the downloaded attachments. `None` when the
+    /// archive could not be read.
+    /// `counted` is true when this answer includes the message total. A
+    /// sizes-only refresh must not be read as a new total of zero.
+    StorageStats {
+        stats: Option<StorageStats>,
+        counted: bool,
+        /// The ask this answers, so an older answer can be dropped.
+        token: u64,
     },
     ChatUpdated(Box<Chat>),
     /// Chat messages in ascending order. `older` prepends them; `complete`

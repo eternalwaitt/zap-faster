@@ -37,6 +37,19 @@ pub struct Account {
     pub open_chat: Option<ChatId>,
     pub scroll_chat_into_view: Option<ChatId>,
     pub drafts: HashMap<ChatId, String>,
+    /// of claiming the archive is empty.
+    pub storage_stats: Option<crate::model::StorageStats>,
+    /// When the last reading was asked for, so a stale one is asked again.
+    pub(crate) storage_stats_at: Option<std::time::Instant>,
+    /// Whether the message count has been read for the current visit to
+    /// Settings. The refresh reads the sizes alone.
+    pub(crate) storage_stats_counted: bool,
+    /// Whether a reading is already on its way to the worker.
+    pub(crate) storage_stats_asked: bool,
+    /// Which storage-stats ask is current. An answer for an older one is
+    /// dropped: it would otherwise put its numbers over the newer read and
+    /// date them now.
+    pub(crate) storage_stats_token: u64,
     pub(crate) refused_edits: Vec<(ChatId, String, crate::backend::EditDraft)>,
     pub(crate) attachment_drafts: HashMap<ChatId, AttachmentDraft>,
     pub(crate) private_reply_drafts: HashMap<ChatId, crate::model::ReplyTarget>,
@@ -113,6 +126,11 @@ impl Account {
             open_chat,
             scroll_chat_into_view: None,
             drafts: HashMap::new(),
+            storage_stats: None,
+            storage_stats_at: None,
+            storage_stats_asked: false,
+            storage_stats_token: 0,
+            storage_stats_counted: false,
             refused_edits: Vec::new(),
             private_reply_drafts: HashMap::new(),
             private_reply_generations: HashMap::new(),
