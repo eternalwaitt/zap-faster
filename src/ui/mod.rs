@@ -9,6 +9,7 @@ pub mod image_editor;
 pub mod image_preview;
 pub mod keys;
 pub mod labels;
+pub mod locations;
 pub mod lock;
 pub mod login;
 pub mod message_info;
