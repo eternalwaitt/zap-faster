@@ -1265,7 +1265,9 @@ impl App {
             self.composer_mentions = self.draft_mentions.remove(&id).unwrap_or_default();
             let attachments = self.attachment_drafts.remove(&id).unwrap_or_default();
             self.pending = attachments.pending;
-            self.reply_to = attachments.quoting.or_else(|| self.private_reply_drafts.remove(&id));
+            self.reply_to = attachments
+                .quoting
+                .or_else(|| self.private_reply_drafts.remove(&id));
         } else {
             self.composer.clear();
             self.composer_mentions.clear();
@@ -3928,7 +3930,9 @@ impl App {
             self.pending = attachments.pending;
             // A search belongs to the chat it was typed in.
             self.close_chat_search();
-            self.reply_to = attachments.quoting.or_else(|| self.private_reply_drafts.remove(&id));
+            self.reply_to = attachments
+                .quoting
+                .or_else(|| self.private_reply_drafts.remove(&id));
             self.editing = None;
             // A run of voice messages belongs to the chat it started in.
             self.voice_chat = None;
@@ -15313,5 +15317,4 @@ fn edit_failure_message(locale: crate::i18n::Locale, error: &EditFailure) -> Str
         assert_eq!(app.reply_to, Some(quote));
         assert_eq!(app.unsent_voice, Some((chat.into(), vec![0.25])));
     }
-
 }
