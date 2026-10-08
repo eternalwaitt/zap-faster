@@ -497,6 +497,8 @@ pub struct Settings {
     /// Keep the chat list's scroll position after sending instead of jumping
     /// to the top. Off by default, matching the usual WhatsApp behavior.
     pub keep_chat_list_position: bool,
+    /// Convert typed, isolated ASCII emoticons in the composer.
+    pub convert_typed_emoticons: bool,
     /// Send read receipts, subject to the account privacy setting.
     pub send_read_receipts: bool,
     /// Send typing state while composing.
@@ -612,6 +614,7 @@ impl Default for Settings {
             search_pane_width: 380.0,
             enter_sends: true,
             keep_chat_list_position: false,
+            convert_typed_emoticons: false,
             send_read_receipts: true,
             send_typing: true,
             auto_download: true,

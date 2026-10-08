@@ -380,6 +380,7 @@ pub struct App {
     /// A sent message moves its chat up, so the chat list goes to the top.
     pub scroll_chats_to_top: bool,
     pub composer: String,
+    pub(crate) emoticon_undo: Option<EmoticonUndo>,
     composer_mentions: Vec<ComposerMention>,
     /// Byte offset of the `:` starting the active emoji query.
     pub emoji_start: Option<usize>,
@@ -742,6 +743,14 @@ pub enum Pending {
     File(PathBuf),
 }
 
+#[derive(Clone, Debug)]
+pub(crate) struct EmoticonUndo {
+    pub(crate) start_byte: usize,
+    pub(crate) source: String,
+    pub(crate) emoji: String,
+    pub(crate) cursor_after: usize,
+}
+
 impl Pending {
     /// Whether the composer can preview the file as an image.
     pub fn is_picture_file(path: &std::path::Path) -> bool {
@@ -1064,6 +1073,7 @@ impl App {
             wallpaper_image: crate::wallpaper::CustomImage::default(),
             scroll_chats_to_top: false,
             composer: String::new(),
+            emoticon_undo: None,
             composer_mentions: Vec::new(),
             emoji_start: None,
             emoji_selected: 0,
@@ -1263,6 +1273,21 @@ impl App {
         }
     }
 
+    pub(crate) fn take_composer_text(&mut self) -> String {
+        self.emoticon_undo = None;
+        std::mem::take(&mut self.composer)
+    }
+
+    fn replace_composer_text(&mut self, text: String) {
+        self.composer = text;
+        self.emoticon_undo = None;
+    }
+
+    fn clear_composer_text(&mut self) {
+        self.composer.clear();
+        self.emoticon_undo = None;
+    }
+
     /// Parks the current account's text, mentions and attachments before switching accounts.
     fn park_composer(&mut self) {
         if let Some(previous) = self.open_chat.clone() {
@@ -1270,7 +1295,7 @@ impl App {
             if let Some(target) = self.reply_to.take().filter(|target| target.chat.is_some()) {
                 self.private_reply_drafts.insert(previous.clone(), target);
             }
-            let draft = std::mem::take(&mut self.composer);
+            let draft = self.take_composer_text();
             if self.editing.take().is_some() || draft.trim().is_empty() {
                 self.drafts.remove(&previous);
                 self.draft_mentions.remove(&previous);
@@ -1295,7 +1320,8 @@ impl App {
     /// Restores the active account's last conversation draft after changing accounts.
     fn restore_composer(&mut self) {
         if let Some(id) = self.open_chat.clone() {
-            self.composer = self.drafts.remove(&id).unwrap_or_default();
+            let text = self.drafts.remove(&id).unwrap_or_default();
+            self.replace_composer_text(text);
             self.composer_mentions = self.draft_mentions.remove(&id).unwrap_or_default();
             let attachments = self.attachment_drafts.remove(&id).unwrap_or_default();
             self.pending = attachments.pending;
@@ -1303,7 +1329,7 @@ impl App {
                 .quoting
                 .or_else(|| self.private_reply_drafts.remove(&id));
         } else {
-            self.composer.clear();
+            self.clear_composer_text();
             self.composer_mentions.clear();
         }
         self.focus_composer = self.open_chat.is_some();
@@ -1915,7 +1941,7 @@ impl App {
         if self.open_chat.as_deref() == Some(id) {
             self.stop_composing(id);
             self.open_chat = None;
-            self.composer.clear();
+            self.clear_composer_text();
             self.composer_mentions.clear();
             self.pending.clear();
             self.private_reply_drafts.remove(id);
@@ -2639,7 +2665,7 @@ impl App {
                         && self.editing.is_none()
                         && self.composer.is_empty()
                     {
-                        self.composer = text;
+                        self.replace_composer_text(text);
                     } else {
                         self.drafts.entry(chat).or_insert(text);
                     }
@@ -2959,7 +2985,7 @@ impl App {
                 }
                 if live && self.editing.as_deref() == Some(id.as_str()) {
                     self.editing = None;
-                    self.composer.clear();
+                    self.clear_composer_text();
                 }
             }
             Event::ChatRemoved { chat } => self.forget_chat(&chat),
@@ -3462,7 +3488,7 @@ impl App {
                 if live {
                     self.pending.clear();
                     self.reply_to = None;
-                    self.composer.clear();
+                    self.clear_composer_text();
                     self.composer_mentions.clear();
                 }
                 self.link = status;
@@ -3635,7 +3661,7 @@ impl App {
         if open && live {
             if editing_gone {
                 self.editing = None;
-                self.composer.clear();
+                self.clear_composer_text();
                 self.composer_mentions.clear();
             }
             if reply_gone {
@@ -3746,7 +3772,7 @@ impl App {
             && self.editing.is_none()
             && !self.composer.is_empty()
         {
-            let draft = std::mem::take(&mut self.composer);
+            let draft = self.take_composer_text();
             let mentions = std::mem::take(&mut self.composer_mentions);
             self.drafts.insert(id.to_owned(), draft);
             self.draft_mentions.insert(id.to_owned(), mentions);
@@ -3863,7 +3889,7 @@ impl App {
         }
         if !self.events_hidden && self.open_chat.as_deref() == Some(chat) {
             if self.composer.trim().is_empty() && self.editing.is_none() {
-                self.composer = text;
+                self.replace_composer_text(text);
                 self.composer_mentions.clear();
                 self.emoji_start = None;
                 self.mention_start = None;
@@ -4185,7 +4211,7 @@ impl App {
             self.jump_highlight = None;
             if let Some(previous) = self.open_chat.take() {
                 self.save_attachment_draft(&previous);
-                let draft = std::mem::take(&mut self.composer);
+                let draft = self.take_composer_text();
                 // Discard an unfinished edit instead of keeping it as a draft.
                 if self.editing.take().is_some() || draft.trim().is_empty() {
                     self.drafts.remove(&previous);
@@ -4214,7 +4240,8 @@ impl App {
                         count: chat.unread,
                         placed: false,
                     });
-            self.composer = self.drafts.remove(&id).unwrap_or_default();
+            let text = self.drafts.remove(&id).unwrap_or_default();
+            self.replace_composer_text(text);
             self.composer_mentions = self.draft_mentions.remove(&id).unwrap_or_default();
             let attachments = self.attachment_drafts.remove(&id).unwrap_or_default();
             self.pending = attachments.pending;
@@ -4990,7 +5017,7 @@ impl App {
                         self.private_reply_drafts.remove(&chat);
                     }
                     self.stop_composing(&chat);
-                    let draft = std::mem::take(&mut self.composer);
+                    let draft = self.take_composer_text();
                     if self.editing.take().is_none() && !draft.trim().is_empty() {
                         self.drafts.insert(chat.clone(), draft);
                         let mentions = std::mem::take(&mut self.composer_mentions);
@@ -5288,7 +5315,7 @@ impl App {
                 // Replying while editing starts a new message: the edited
                 // text must not go out as the reply.
                 if self.editing.take().is_some() {
-                    self.composer.clear();
+                    self.clear_composer_text();
                     self.composer_mentions.clear();
                     self.emoji_start = None;
                     self.mention_start = None;
@@ -5561,7 +5588,7 @@ impl App {
                     self.editing = Some(id);
                     self.composer_tools_open = false;
                     self.reply_to = None;
-                    self.composer = text;
+                    self.replace_composer_text(text);
                     self.composer_mentions.clear();
                     self.emoji_start = None;
                     self.mention_start = None;
@@ -5570,7 +5597,7 @@ impl App {
             }
             Action::CancelEdit => {
                 if self.editing.take().is_some() {
-                    self.composer.clear();
+                    self.clear_composer_text();
                     self.composer_mentions.clear();
                     self.emoji_start = None;
                     self.mention_start = None;
@@ -5860,6 +5887,46 @@ impl App {
                     self.focus_composer = true;
                 }
                 self.emoji_start = None;
+            }
+            Action::ReplaceTypedEmoticon {
+                source,
+                emoji,
+                start,
+                end,
+            } => {
+                if self.settings.convert_typed_emoticons
+                    && start < end
+                    && self.composer.is_char_boundary(start)
+                    && self.composer.is_char_boundary(end)
+                    && self.composer.get(start..end) == Some(source.as_str())
+                {
+                    self.composer.replace_range(start..end, &emoji);
+                    let cursor_after =
+                        self.composer[..start].chars().count() + emoji.chars().count();
+                    self.set_composer_cursor(ctx, cursor_after);
+                    self.emoticon_undo = Some(EmoticonUndo {
+                        start_byte: start,
+                        source,
+                        emoji: emoji.clone(),
+                        cursor_after,
+                    });
+                    self.remember_emoji(&emoji);
+                    self.focus_composer = true;
+                }
+                self.emoji_start = None;
+                self.mention_start = None;
+            }
+            Action::UndoTypedEmoticon => {
+                if let Some(undo) = self.emoticon_undo.take() {
+                    let end = undo.start_byte + undo.emoji.len();
+                    if self.composer.get(undo.start_byte..end) == Some(undo.emoji.as_str()) {
+                        self.composer
+                            .replace_range(undo.start_byte..end, &undo.source);
+                        let cursor = self.composer[..undo.start_byte].chars().count()
+                            + undo.source.chars().count();
+                        self.set_composer_cursor(ctx, cursor);
+                    }
+                }
             }
             Action::CloseEmojiSuggestions => {
                 self.emoji_start = None;
@@ -9630,6 +9697,28 @@ mod tests {
             Some(chat),
             "the forward button reopened it"
         );
+    }
+
+    #[test]
+    fn switching_chats_discards_typed_emoticon_undo() {
+        let directory = tempfile::tempdir().unwrap();
+        let mut app = App::headless(AppDirs::under(directory.path()), Settings::default()).0;
+        app.settings.convert_typed_emoticons = true;
+        app.open_chat = Some("chat-a".to_owned());
+        app.composer = "same 😊".to_owned();
+        app.emoticon_undo = Some(EmoticonUndo {
+            start_byte: 5,
+            source: ":)".to_owned(),
+            emoji: "😊".to_owned(),
+            cursor_after: 6,
+        });
+
+        app.open_chat("chat-b".to_owned());
+        assert!(app.emoticon_undo.is_none());
+        app.composer = "same 😊".to_owned();
+        app.apply(Action::UndoTypedEmoticon, &egui::Context::default());
+
+        assert_eq!(app.composer, "same 😊");
     }
 
     #[test]

@@ -14,6 +14,7 @@ pub mod demo;
 pub mod diagnostics;
 pub mod emoji;
 pub mod file_drag;
+pub mod emoticons;
 pub mod i18n;
 pub mod image_cache;
 pub mod image_preview;
