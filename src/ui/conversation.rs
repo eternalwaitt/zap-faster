@@ -4246,7 +4246,12 @@ fn footer_over_picture(
     actions: &mut Vec<Action>,
 ) {
     let palette = &view.palette;
-    let delivery = display_delivery(message.status, message.from_me, view.chat.kind, view.account_receipts_off);
+    let delivery = display_delivery(
+        message.status,
+        message.from_me,
+        view.chat.kind,
+        view.account_receipts_off,
+    );
     let font = theme::regular(11.0);
     let time =
         ui.painter()
@@ -4365,7 +4370,12 @@ fn footer(
     actions: &mut Vec<Action>,
 ) {
     let palette = &view.palette;
-    let delivery = display_delivery(message.status, message.from_me, view.chat.kind, view.account_receipts_off);
+    let delivery = display_delivery(
+        message.status,
+        message.from_me,
+        view.chat.kind,
+        view.account_receipts_off,
+    );
     let font = theme::regular(11.0);
     let time = ui.painter().layout_no_wrap(
         crate::util::clock(message.timestamp),

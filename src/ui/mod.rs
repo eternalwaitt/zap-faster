@@ -1316,5 +1316,4 @@ mod idle_tests {
             "the oldest never flashes: {shown:?}"
         );
     }
-
 }

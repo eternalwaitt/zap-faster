@@ -6732,7 +6732,6 @@ mod tests {
         assert!(app.new_contact_pending);
     }
 
-
     /// Our time or ticks open "Message info"; an incoming time opens nothing.
     #[test]
     fn clicking_the_time_or_ticks_opens_message_info() {

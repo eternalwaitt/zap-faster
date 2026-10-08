@@ -2713,35 +2713,35 @@ impl App {
                         .collect();
                 }
             }
-                Event::StorageStats {
-                    stats,
-                    counted,
-                    token,
-                } => {
-                    // An answer to an older ask would put its numbers over
-                    // the newer ones and date them now, so it is dropped.
-                    if token == self.storage_stats_token {
-                        // A failed read answers nothing and leaves the last
-                        // good numbers, or the blank row, in place. The
-                        // attempt still counts as one, so a broken archive is
-                        // retried on the same cadence instead of on every
-                        // frame.
-                        if let Some(mut stats) = stats {
-                            if counted {
-                                self.storage_stats_counted = true;
-                            } else {
-                                // A sizes-only refresh carries a zero message
-                                // total. Keep the total from the counted read.
-                                stats.messages = self
-                                    .storage_stats
-                                    .map_or(stats.messages, |last| last.messages);
-                            }
-                            self.storage_stats = Some(stats);
+            Event::StorageStats {
+                stats,
+                counted,
+                token,
+            } => {
+                // An answer to an older ask would put its numbers over
+                // the newer ones and date them now, so it is dropped.
+                if token == self.storage_stats_token {
+                    // A failed read answers nothing and leaves the last
+                    // good numbers, or the blank row, in place. The
+                    // attempt still counts as one, so a broken archive is
+                    // retried on the same cadence instead of on every
+                    // frame.
+                    if let Some(mut stats) = stats {
+                        if counted {
+                            self.storage_stats_counted = true;
+                        } else {
+                            // A sizes-only refresh carries a zero message
+                            // total. Keep the total from the counted read.
+                            stats.messages = self
+                                .storage_stats
+                                .map_or(stats.messages, |last| last.messages);
                         }
-                        self.storage_stats_at = Some(Instant::now());
-                        self.storage_stats_asked = false;
+                        self.storage_stats = Some(stats);
                     }
+                    self.storage_stats_at = Some(Instant::now());
+                    self.storage_stats_asked = false;
                 }
+            }
             Event::Incoming { chat, message } => self.maybe_notify(&chat, &message),
             Event::Picked { chat, paths } => {
                 if live && self.open_chat.as_deref() == Some(chat.as_str()) {
