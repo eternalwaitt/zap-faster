@@ -27,6 +27,15 @@ picker without losing the selection. If a destination becomes locked or
 read-only, ZapFast returns to selection instead of sending a partial batch.
 Switching accounts discards the open forwarding selection.
 
+Outgoing text can be edited for 15 minutes after its original send time.
+ZapFast validates that limit again before sending and keeps the original
+message until WhatsApp accepts the edit. Failed corrections return to the
+originating account without replacing a newer draft or reply. Expired
+corrections become ordinary unsent drafts and require an explicit send.
+Deleting or revoking the original discards its queued corrections. Edits to
+the same message are sent in arrival order; unrelated messages remain
+independent.
+
 Double-click beside a message, or on its edge, to reply to it. A double-click
 on its text still selects the word.
 

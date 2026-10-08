@@ -4312,6 +4312,7 @@ fn selection_menu(
     }
 }
 
+/// Draws message actions with current edit, revoke and attachment capabilities.
 fn context_menu(ui: &mut egui::Ui, view: &View<'_>, message: &Message, actions: &mut Vec<Action>) {
     let palette = view.palette;
     let chat = &view.chat.id;
@@ -4429,9 +4430,7 @@ fn context_menu(ui: &mut egui::Ui, view: &View<'_>, message: &Message, actions: 
         actions.push(Action::CopyText(markup::plain(&text, &mentions)));
     }
     let age = view.now - message.timestamp;
-    let can_edit = message.from_me
-        && matches!(message.content, Content::Text { .. })
-        && age <= crate::app::EDIT_WINDOW.as_secs() as i64;
+    let can_edit = message.editable_at(view.now);
     let can_revoke = message.from_me
         && !matches!(message.content, Content::Revoked)
         && age <= crate::app::REVOKE_WINDOW.as_secs() as i64;
