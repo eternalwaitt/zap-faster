@@ -1122,6 +1122,8 @@ pub enum Dialog {
     PairWithPhone,
     /// Contacts and the self-chat shortcut.
     NewChat,
+    /// Start a conversation without saving the number as a contact.
+    MessageNumber,
     /// Manually entered number for messaging or saving a contact.
     NewContact,
     UnlockLockedChats,
@@ -1310,6 +1312,7 @@ pub enum Action {
     StartChat {
         id: ChatId,
         name: String,
+        dismiss_dialog: bool,
     },
     /// Opens a chat at a message search result.
     OpenMessage {
