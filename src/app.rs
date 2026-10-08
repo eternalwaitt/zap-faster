@@ -16927,5 +16927,4 @@ fn edit_failure_message(locale: crate::i18n::Locale, error: &EditFailure) -> Str
         assert_eq!(app.composer, "Second account");
         assert!(app.accounts[0].chats.is_empty());
     }
-
 }
