@@ -592,6 +592,7 @@ pub async fn run(
     worker.backfill_media_albums();
     worker.backfill_video_notes();
     worker.backfill_view_once();
+    worker.backfill_motion_photos();
     worker.backfill_interactive();
     worker.relocate_media();
     discard_attachment_staging(&worker.dirs.media_cache_dir());
@@ -1086,6 +1087,15 @@ struct ParsedChat {
     revoked: Vec<String>,
     poll_updates: Vec<HistoryPollUpdate>,
     reactions: Vec<HistoryReaction>,
+    clips: Vec<HistoryClip>,
+}
+
+/// A motion photo's clip from history, filed for its photo.
+struct HistoryClip {
+    parent: String,
+    sender: Option<String>,
+    from_me: bool,
+    raw: Vec<u8>,
 }
 
 /// Counts only. Never put message keys, bodies, names, or raw protobufs here:
@@ -1517,6 +1527,12 @@ impl Worker {
                 return;
             }
         };
+        // A clip lives only in the cache: one that is gone downloads again.
+        for (chat, id, path) in self.archive.motion_paths().unwrap_or_default() {
+            if !path.exists() {
+                let _ = self.archive.put_motion_path(&chat, &id, None);
+            }
+        }
         let (mut moved, mut forgotten) = (0, 0);
         for (chat, id, card, path) in rows {
             if path.exists() {
@@ -1778,6 +1794,61 @@ impl Worker {
         let _ = self.archive.set_meta(KEY, "1");
         if updated > 0 {
             log::info!("marked {updated} archived video messages as round");
+            self.emit_chats();
+        }
+    }
+
+    /// Moves the clips of motion photos, filed as unsupported messages before
+    /// they were recognised, to their photos.
+    fn backfill_motion_photos(&mut self) {
+        const KEY: &str = "motion_photo_children";
+        if self.archive.meta(KEY).ok().flatten().as_deref() == Some("1") {
+            return;
+        }
+        let rows = match self.archive.unsupported_with_raw() {
+            Ok(rows) => rows,
+            Err(error) => {
+                log::warn!("could not read archived unsupported messages: {error}");
+                return;
+            }
+        };
+        let mut removed = 0;
+        let mut failed = false;
+        for (chat, id, raw) in rows {
+            let Ok(message) = wa::Message::decode_from_slice(&raw) else {
+                continue;
+            };
+            let base = message.get_base_message();
+            if !motion_photo_child(base) {
+                continue;
+            }
+            if let Some((parent, clip)) = motion_clip(base) {
+                let filed = self.archive.message(&chat, &id).and_then(|row| match row {
+                    Some(row) => self
+                        .archive
+                        .put_motion_clip(&chat, &parent, &row.sender, &clip)
+                        .map(drop),
+                    None => Ok(()),
+                });
+                if let Err(error) = filed {
+                    log::warn!("could not move an archived motion clip: {error}");
+                    failed = true;
+                    continue;
+                }
+            }
+            match self.archive.delete_message(&chat, &id) {
+                Ok(_) => removed += 1,
+                Err(error) => {
+                    log::warn!("could not remove an archived motion clip: {error}");
+                    failed = true;
+                }
+            }
+        }
+        if !failed {
+            let _ = self.archive.set_meta(KEY, "1");
+        }
+        if removed > 0 {
+            log::info!("removed {removed} archived motion photo clips");
             self.emit_chats();
         }
     }
@@ -3468,6 +3539,10 @@ impl Worker {
         if self.update_live_location(&chat, &sender, base, info) {
             return;
         }
+        if let Some((parent, clip)) = motion_clip(base) {
+            self.file_motion_clip(&chat, &parent, &sender, &clip);
+            return;
+        }
         let Some(mut content) = classify(message) else {
             return;
         };
@@ -4600,6 +4675,17 @@ impl Worker {
                 let _ = self
                     .archive
                     .set_content(&id, &revoked, &Content::Revoked, false);
+            }
+            for clip in chat.clips {
+                let sender = if clip.from_me {
+                    self.me()
+                } else {
+                    clip.sender
+                        .as_deref()
+                        .map(|sender| self.canonical_str(sender))
+                        .unwrap_or_else(|| id.clone())
+                };
+                self.file_motion_clip(&id, &clip.parent, &sender, &clip.raw);
             }
             if (metadata || existing.is_none())
                 && let Some(snapshot_unread) = chat.unread
@@ -6269,6 +6355,19 @@ impl Worker {
                 id,
                 result,
             } => self.downloaded(chat, id, card, result),
+            Command::DownloadMotion { chat, message } => self.download_motion(chat, message),
+            Command::MotionDownloaded { chat, id, result } => {
+                if let Ok(path) = &result
+                    && let Err(error) = self.archive.put_motion_path(&chat, &id, Some(path))
+                {
+                    log::warn!("could not store a motion clip's path: {error}");
+                }
+                self.emit(Event::Motion {
+                    chat,
+                    message: id,
+                    result,
+                });
+            }
             Command::AvatarFetched { id, full, path } => {
                 self.emit(Event::Avatar { id, full, path })
             }
@@ -7338,6 +7437,53 @@ impl Worker {
                 id,
                 result,
             });
+        });
+    }
+
+    /// Keeps a motion photo's clip for its photo, which may not be here yet.
+    fn file_motion_clip(&mut self, chat: &str, parent: &str, sender: &str, clip: &[u8]) {
+        match self.archive.put_motion_clip(chat, parent, sender, clip) {
+            Ok(true) => self.emit_message(chat, parent),
+            Ok(false) => {}
+            Err(error) => log::warn!("could not store a motion clip: {error}"),
+        }
+    }
+
+    /// Downloads a motion photo's clip into the cache. It is fetched like any
+    /// attachment: verified, under the size limit, and within the deadline.
+    fn download_motion(&mut self, chat: ChatId, id: String) {
+        let clip = self.archive.motion_clip(&chat, &id).ok().flatten();
+        let video = clip
+            .and_then(|raw| wa::Message::decode_from_slice(&raw).ok())
+            .and_then(|message| message.video_message.into_option());
+        let (client, video) = match (self.client.clone(), video) {
+            (Some(client), Some(video)) if !attachment_is_too_large(video.file_length) => {
+                (client, video)
+            }
+            (client, video) => {
+                let error = match (client, video) {
+                    (None, _) => "Not connected to WhatsApp",
+                    (_, None) => "The clip has not arrived",
+                    _ => ATTACHMENT_LIMIT_ERROR,
+                };
+                self.emit(Event::Motion {
+                    chat,
+                    message: id,
+                    result: Err(error.to_owned()),
+                });
+                return;
+            }
+        };
+        let dir = self.dirs.media_cache_dir();
+        let commands = self.commands.clone();
+        tokio::spawn(async move {
+            let path = media_path(&dir, &chat, &format!("{id}-motion"), "video/mp4", None);
+            let result = with_attachment_deadline(
+                ATTACHMENT_TIMEOUT,
+                download_attachment(&client, &video, &dir, &path),
+            )
+            .await;
+            let _ = commands.send(Command::MotionDownloaded { chat, id, result });
         });
     }
 
@@ -9146,7 +9292,13 @@ fn classify_base(base: &wa::Message) -> Option<Content> {
         });
     }
     if let Some(image) = base.image_message.as_option() {
+        let parent = image
+            .context_info
+            .as_option()
+            .and_then(|context| context.paired_media_type)
+            == Some(wa::context_info::PairedMediaType::MOTION_PHOTO_PARENT);
         return Some(Content::Image {
+            motion: parent.then(Default::default),
             caption: non_empty(&image.caption),
             media: album_media(
                 base,
@@ -9279,7 +9431,7 @@ fn classify_base(base: &wa::Message) -> Option<Content> {
             what: what.to_owned(),
         })
     };
-    if base.album_message.is_set() {
+    if base.album_message.is_set() || motion_photo_child(base) {
         return None;
     }
     if base.group_invite_message.is_set() {
@@ -9360,6 +9512,67 @@ fn album_media(base: &wa::Message, mut media: Media) -> Media {
         .and_then(|association| association.parent_message_key.as_option())
         .and_then(|key| key.id.clone());
     media
+}
+
+/// Whether `base` carries the video half of a motion photo. The photo is a
+/// message of its own, so the clip beside it is not a second message.
+fn motion_photo_child(base: &wa::Message) -> bool {
+    use wa::context_info::PairedMediaType;
+    use wa::message_association::AssociationType;
+    let Some(child) = base
+        .associated_child_message
+        .as_option()
+        .and_then(|wrapper| wrapper.message.as_option())
+    else {
+        return false;
+    };
+    let associated = |message: &wa::Message| {
+        message
+            .message_context_info
+            .as_option()
+            .and_then(|context| context.message_association.as_option())
+            .and_then(|association| association.association_type)
+            == Some(AssociationType::MOTION_PHOTO)
+    };
+    associated(base)
+        || associated(child)
+        || child
+            .video_message
+            .as_option()
+            .and_then(|video| video.context_info.as_option())
+            .and_then(|context| context.paired_media_type)
+            == Some(PairedMediaType::MOTION_PHOTO_CHILD)
+}
+
+/// The id of the photo a motion photo's clip belongs to, and the clip as a
+/// bare video message: what a later download needs and nothing else.
+fn motion_clip(base: &wa::Message) -> Option<(String, Vec<u8>)> {
+    if !motion_photo_child(base) {
+        return None;
+    }
+    let child = base
+        .associated_child_message
+        .as_option()?
+        .message
+        .as_option()?;
+    let video = child.video_message.as_option()?;
+    let parent = [base, child].into_iter().find_map(|message| {
+        message
+            .message_context_info
+            .as_option()?
+            .message_association
+            .as_option()?
+            .parent_message_key
+            .as_option()?
+            .id
+            .clone()
+            .filter(|id| !id.is_empty())
+    })?;
+    let clip = wa::Message {
+        video_message: MessageField::some(video.clone()),
+        ..Default::default()
+    };
+    Some((parent, clip.encode_to_vec()))
 }
 
 /// Uploaded attachment protobuf and archive content.
@@ -9537,6 +9750,7 @@ async fn prepare_media(
         return Ok(Prepared {
             message,
             content: Content::Image {
+                motion: None,
                 caption: None,
                 media: media(
                     Some(&"image/jpeg".to_owned()),
@@ -9999,6 +10213,7 @@ fn parse_conversation(conversation: wa::Conversation) -> ParsedChat {
     let mut revoked = Vec::new();
     let mut poll_updates = Vec::new();
     let mut reactions = Vec::new();
+    let mut clips = Vec::new();
     let mut newest = 0;
     for entry in &conversation.messages {
         let Some(info) = entry.message.as_option() else {
@@ -10138,6 +10353,15 @@ fn parse_conversation(conversation: wa::Conversation) -> ParsedChat {
                 from_me,
                 timestamp,
                 update: update.clone(),
+            });
+            continue;
+        }
+        if let Some((parent, raw)) = motion_clip(base) {
+            clips.push(HistoryClip {
+                parent,
+                sender,
+                from_me,
+                raw,
             });
             continue;
         }
@@ -10306,6 +10530,7 @@ fn parse_conversation(conversation: wa::Conversation) -> ParsedChat {
         more_on_phone,
         messages,
         revoked,
+        clips,
         poll_updates,
         reactions,
     }
@@ -11600,7 +11825,7 @@ mod tests {
             ..Default::default()
         };
         match classify(&image) {
-            Some(Content::Image { caption, media }) => {
+            Some(Content::Image { caption, media, .. }) => {
                 assert_eq!(caption.as_deref(), Some("look"));
                 assert_eq!(media.mime, "image/jpeg");
                 assert_eq!((media.width, media.height), (Some(4), Some(3)));
@@ -12346,6 +12571,50 @@ mod tests {
         assert!(matches!(
             classify(&message),
             Some(Content::Text { preview: None, .. })
+        ));
+    }
+
+    #[test]
+    fn the_video_half_of_a_motion_photo_is_not_a_message() {
+        let child = |association_type| wa::Message {
+            associated_child_message: MessageField::some(wa::message::FutureProofMessage {
+                message: MessageField::some(wa::Message {
+                    video_message: MessageField::some(wa::message::VideoMessage {
+                        mimetype: Some("video/mp4".into()),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                }),
+            }),
+            message_context_info: MessageField::some(wa::MessageContextInfo {
+                message_association: MessageField::some(wa::MessageAssociation {
+                    association_type: Some(association_type),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+        use wa::message_association::AssociationType;
+        assert_eq!(classify(&child(AssociationType::MOTION_PHOTO)), None);
+        // Without the photo's id there is nothing to attach the clip to.
+        assert_eq!(motion_clip(&child(AssociationType::MOTION_PHOTO)), None);
+        let mut clip = child(AssociationType::MOTION_PHOTO);
+        clip.message_context_info
+            .as_option_mut()
+            .and_then(|context| context.message_association.as_option_mut())
+            .unwrap()
+            .parent_message_key = MessageField::some(wa::MessageKey {
+            id: Some("photo".into()),
+            ..Default::default()
+        });
+        assert_eq!(
+            motion_clip(&clip).map(|(parent, _)| parent).as_deref(),
+            Some("photo")
+        );
+        assert!(matches!(
+            classify(&child(AssociationType::MEDIA_ALBUM)),
+            Some(Content::Unsupported { .. })
         ));
     }
 
@@ -14413,13 +14682,19 @@ mod receipt_tests {
             ("plain", &plain, None),
         ] {
             let mut message = own_message(id, 1);
-            let Some(Content::Image { mut media, caption }) = classify_base(raw.get_base_message())
+            let Some(Content::Image {
+                mut media, caption, ..
+            }) = classify_base(raw.get_base_message())
             else {
                 panic!("not an image");
             };
             media.path = path.map(std::path::PathBuf::from);
             // Filed as an ordinary photo, before view once was recognised.
-            message.content = Content::Image { caption, media };
+            message.content = Content::Image {
+                caption,
+                media,
+                motion: None,
+            };
             worker
                 .archive
                 .insert_message(&message, Some(&raw.encode_to_vec()))
@@ -15715,6 +15990,7 @@ mod receipt_tests {
         let (mut worker, _events, _inbox, _wa) = receipt_tests::worker();
         let mut picture = incoming("photo", 100);
         picture.content = Content::Image {
+            motion: None,
             media: Media {
                 mime: "image/jpeg".into(),
                 size: 10,
@@ -17544,6 +17820,7 @@ mod chat_removal_tests {
                     })
                     .collect(),
                 revoked: Vec::new(),
+                clips: Vec::new(),
                 poll_updates: Vec::new(),
                 reactions: Vec::new(),
             }],
