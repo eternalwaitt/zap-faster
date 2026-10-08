@@ -59,6 +59,9 @@ a chat, or unlinking its account, discards its attachment drafts. A refused
 attachment send returns its files, caption and reply quote to the originating
 account's chat draft, even if another account is on screen.
 
+**Development builds** also show when your message was delivered and read when
+you click its time or ticks, as on WhatsApp.
+
 Double-click beside a message, or on its edge, to reply to it. A double-click
 on its text still selects the word.
 
