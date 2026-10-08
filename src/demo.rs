@@ -413,6 +413,7 @@ fn sample_files(app: &App) -> (std::path::PathBuf, std::path::PathBuf) {
 
 /// Loads the sample account and opens its first chat.
 pub fn populate(app: &mut App) {
+    app.chats_loaded = true;
     app.backend.set_offline(true);
     // With no backend to answer them, the interface's commands are answered
     // here instead.
