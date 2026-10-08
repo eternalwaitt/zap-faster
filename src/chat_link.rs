@@ -55,7 +55,7 @@ impl ChatLink {
         };
         // fastframe-instance accepts a 16 KiB line, including its prefix and
         // the Windows token. Leave room for those instead of losing a draft
-        // only when ZapFast was already running.
+        // only when Zap Faster was already running.
         if link.request().len() > 15 * 1024 {
             return Err("The WhatsApp chat link is too long");
         }

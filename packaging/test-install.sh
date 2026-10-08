@@ -27,29 +27,29 @@ docker run --rm \
     set -- /packages/*."$FORMAT"
     test "$#" -eq 1
     test -f "$1"
-    mkdir -p /root/.config/zapfast
-    printf "%s\n" "preserve-existing-settings" > /root/.config/zapfast/fixture
+    mkdir -p /root/.config/zap-faster
+    printf "%s\n" "preserve-existing-settings" > /root/.config/zap-faster/fixture
     if [ "$FORMAT" = deb ]; then
       apt-get update
       DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "$1"
-      dpkg-query -W zapfast
+      dpkg-query -W zap-faster
     else
       dnf install -y --setopt=install_weak_deps=False "$1"
-      rpm -q zapfast
+      rpm -q zap-faster
     fi
-    zapfast --version
+    zap-faster --version
     /checks/check-runtime-libs
-    test -s /usr/share/applications/zapfast.desktop
-    test -s /usr/share/icons/hicolor/scalable/apps/zapfast.svg
-    grep -qx "Icon=zapfast" /usr/share/applications/zapfast.desktop
-    grep -qx "StartupWMClass=zapfast" /usr/share/applications/zapfast.desktop
-    test -s /usr/share/zapfast/omarchy/zapfast.json.tpl
-    test -x /usr/share/zapfast/omarchy/zapfast-theme
-    if [ "$FORMAT" = deb ]; then apt-get remove -y zapfast; else dnf remove -y zapfast; fi
-    test ! -e /usr/bin/zapfast
-    test ! -e /usr/share/applications/zapfast.desktop
-    test ! -e /usr/share/icons/hicolor/scalable/apps/zapfast.svg
-    test ! -e /usr/share/zapfast/omarchy/zapfast.json.tpl
-    test ! -e /usr/share/zapfast/omarchy/zapfast-theme
-    test "$(cat /root/.config/zapfast/fixture)" = preserve-existing-settings
+    test -s /usr/share/applications/zap-faster.desktop
+    test -s /usr/share/icons/hicolor/scalable/apps/zap-faster.svg
+    grep -qx "Icon=zap-faster" /usr/share/applications/zap-faster.desktop
+    grep -qx "StartupWMClass=zap-faster" /usr/share/applications/zap-faster.desktop
+    test -s /usr/share/zap-faster/omarchy/zap-faster.json.tpl
+    test -x /usr/share/zap-faster/omarchy/zap-faster-theme
+    if [ "$FORMAT" = deb ]; then apt-get remove -y zap-faster; else dnf remove -y zap-faster; fi
+    test ! -e /usr/bin/zap-faster
+    test ! -e /usr/share/applications/zap-faster.desktop
+    test ! -e /usr/share/icons/hicolor/scalable/apps/zap-faster.svg
+    test ! -e /usr/share/zap-faster/omarchy/zap-faster.json.tpl
+    test ! -e /usr/share/zap-faster/omarchy/zap-faster-theme
+    test "$(cat /root/.config/zap-faster/fixture)" = preserve-existing-settings
   '

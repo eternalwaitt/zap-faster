@@ -2929,6 +2929,7 @@ pub(crate) mod tests {
     /// Checks that archive search indexes fixture text, attachment captions and file names.
     fn media(size: u64, path: Option<&str>) -> crate::model::Media {
         crate::model::Media {
+            album: None,
             mime: "application/octet-stream".into(),
             size,
             width: None,
@@ -2970,6 +2971,7 @@ pub(crate) mod tests {
             {
                 let mut row = message(chat, "i1", 2, false);
                 row.content = Content::Image {
+                    motion: None,
                     caption: None,
                     media: media(100, Some("/i1.jpg")),
                 };
@@ -2978,6 +2980,7 @@ pub(crate) mod tests {
             {
                 let mut row = message(chat, "i2", 3, false);
                 row.content = Content::Image {
+                    motion: None,
                     caption: None,
                     media: media(50, None),
                 };
@@ -2986,6 +2989,7 @@ pub(crate) mod tests {
             {
                 let mut row = message(chat, "i3", 4, false);
                 row.content = Content::Image {
+                    motion: None,
                     caption: None,
                     media: media(999, Some("")),
                 };
@@ -3642,6 +3646,7 @@ pub(crate) mod tests {
             motion: None,
             caption: None,
             media: crate::model::Media {
+                album: None,
                 mime: "image/jpeg".into(),
                 size: 1,
                 width: None,

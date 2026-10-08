@@ -1,82 +1,60 @@
-# ZapFast
+# Zap Faster
 
-**WhatsApp, native and fast.** ZapFast is a WhatsApp client for Linux, macOS,
-and Windows, written in Rust with [egui](https://github.com/emilk/egui) and
-[whatsapp-rust](https://github.com/oxidezap/whatsapp-rust). It links to your
-phone as a companion device and has no browser engine. In our Linux test it
-opens in under a second and uses about 200 MB of idle RAM, against 1.13 GB for
-WhatsApp Web. [See the measurements](https://zapfast.rocks/benchmarks/).
+A community-friendly fork of [ZapFast](https://github.com/crmne/zapfast), maintained by a daily user to ship fixes and improvements faster.
 
-https://github.com/user-attachments/assets/2bf86b54-45fc-4add-8de7-c426c3cdad9b
+Zap Faster is a small native WhatsApp client for Windows, Linux and macOS, built with Rust, [egui](https://github.com/emilk/egui), [whatsapp-rust](https://github.com/oxidezap/whatsapp-rust) and [fastframe](https://github.com/crmne/fastframe). It links to your phone as a companion device. No browser engine, telemetry, hosted backend or Zap Faster account is required.
 
-<picture>
-  <source media="(prefers-color-scheme: light)" srcset="docs/screenshot-light.png">
-  <img src="docs/screenshot.png" alt="ZapFast showing a conversation with an attachment, voice messages, reactions, a quoted reply, and a link preview">
-</picture>
+The original project and its contributors made this possible. This fork preserves the MIT license, copyright notices and contributor credit. It has its own maintenance and release schedule. Contributions and fixes from either project are welcome.
 
-**[zapfast.rocks](https://zapfast.rocks)** has downloads and the full guide:
+## Download and run
 
-- [What is ZapFast?](https://zapfast.rocks/what-is-zapfast/): what it does and does not do yet
-- [Download](https://zapfast.rocks/download/): Linux, macOS, and Windows
-- [Getting started](https://zapfast.rocks/getting-started/): linking your phone, building from source
-- [Using ZapFast](https://zapfast.rocks/using-zapfast/): messages, stickers, polls, shortcuts
-- [Settings & files](https://zapfast.rocks/settings-and-files/): where your data lives, startup preferences, encryption, app lock, updates
-- [Making a theme](https://zapfast.rocks/themes/)
+Download installers and portable builds from **[Zap Faster releases](https://github.com/eternalwaitt/zap-faster/releases)**. Upstream ZapFast installers, its Homebrew tap, AUR packages and website downloads install the original project.
 
-Development builds also show group descriptions in group info, with selectable
-text and scrolling for longer descriptions. See [Using ZapFast](docs/_guide/using-zapfast.md#chats).
-
-Phone numbers in message text open actions to start a chat or copy the displayed number.
-
-**Want Spotify just as fast and native?** [Spotifast](https://spotifast.rocks)
-is ZapFast's sibling. Both are built on
-[fastframe](https://github.com/crmne/fastframe).
-
-New chat can check an international phone number with WhatsApp and open a
-conversation without saving a contact. See [Chats](docs/_guide/using-zapfast.md#chats).
-
-Attachment drafts retain their pictures, files, captions and replies while
-ZapFast is running. Quitting discards them. See [Attachments](docs/_guide/using-zapfast.md#attachments).
-
-Settings offers **Keep chat list position after sending**. See
-[Settings & files](docs/_guide/settings-and-files.md) for how it affects the chat list.
-
-Chats with unsent text or attachments appear first, with a draft label. See
-[Writing](https://zapfast.rocks/using-zapfast/#writing) for draft retention and privacy.
-
-## Install
+The first fork release is being verified. Until a release is published, build from source with the toolchain in `rust-toolchain.toml`:
 
 ```sh
-brew install --cask crmne/tap/zapfast   # macOS
-yay -S zapfast-bin                      # Arch Linux
-nix profile install github:crmne/zapfast
+git clone https://github.com/eternalwaitt/zap-faster.git
+cd zap-faster
+cargo run --locked --release
 ```
 
-Installers, AppImages, and archives for every platform are on the
-[releases page](https://github.com/crmne/zapfast/releases). To build from
-source, see [Getting started](https://zapfast.rocks/getting-started/).
+Linux builds need the development packages for ALSA, OpenGL, Wayland and xkbcommon, plus CMake and Perl. Windows builds need Visual Studio C++ Build Tools, CMake and Perl. macOS builds need Xcode Command Line Tools and CMake. See [the build and packaging guide](PACKAGING.md).
 
-## Developing
+## What this fork adds
+
+- More reliable text selection, screenshot pasting and scrolling; Windows attachment dragging.
+- Media albums, attachment drafts tied to their chat, crop/rotate before sending, and image navigation.
+- Private group replies, multi-recipient forwarding, batch deletion and safer failed edits.
+- Unsent drafts at the top of the chat list and an option to keep the list position after sending.
+- Audio files distinct from voice notes, AAC video sound, playback speeds and motion photos.
+- Chat links as unsent drafts, unsaved phone-number chats, location sharing and phone-number actions.
+- Screen privacy, read-receipt privacy, attachment storage usage and notification throttling.
+- Group descriptions and disappearing-message timers, keyboard shortcuts and mouse-side navigation.
+
+The [upstream intake ledger](docs/upstream-intake.md) records individual PRs, original authors, imported revisions and work that still needs adaptation. A listing there is not a promise that an unmerged feature is available.
+
+## Existing ZapFast users
+
+Quit ZapFast before starting Zap Faster. The fork intentionally retains ZapFast's existing settings, session, encrypted archive, OS keyring identity and single-instance lock. It uses the existing `zapfast` data directories; installing both does not create independent accounts. Back up your data before switching, and use one application at a time. The fork does not read your archive during builds or development.
+
+Zap Faster checks its own GitHub releases for updates and verifies them with its own Ed25519 signing key. It does not consume upstream ZapFast updates. Update signatures are separate from Windows Authenticode and Apple notarization; download pages state any platform signing limitations.
+
+The [settings and files guide](docs/_reference/settings-and-files.md) describes local storage, encryption and network behavior. GIF search contacts Giphy only when used and configured; preview links and location map links may contact the relevant website when opened. No feature uploads message content to a transcription or analytics service.
+
+## Contribute
+
+Open [issues](https://github.com/eternalwaitt/zap-faster/issues) and [pull requests](https://github.com/eternalwaitt/zap-faster/pulls) here. See [CONTRIBUTING.md](CONTRIBUTING.md) for the checks and privacy requirements. For an upstream issue, link it and describe whether you can reproduce it in Zap Faster. Imported fixes retain the source link and author credit.
+
+We continue to review upstream changes and can contribute compatible fixes back. There is no deadline for ending this fork; its purpose is a reliable daily client and a useful development loop.
 
 ```sh
-cargo run --features demo -- --demo            # offline sample chats, no WhatsApp connection
-cargo run --features demo -- --demo-page phone-menu
+cargo run --locked --features demo -- --demo
 ```
 
-[CONTRIBUTING.md](CONTRIBUTING.md) covers issues, pull requests, and checks;
-[AGENTS.md](AGENTS.md) the architecture; [DEMO.md](DEMO.md) demo pages,
-screenshots, and recorded tours; [PACKAGING.md](PACKAGING.md) releases and
-packages.
+The demo uses synthetic conversations offline. [DEMO.md](DEMO.md) documents its screens and layout checks.
 
-## Disclaimer
+## Disclaimer and license
 
-ZapFast is an unofficial client and is not affiliated with WhatsApp or
-Meta. Using an unofficial client may be against WhatsApp's terms of service
-and could get an account suspended. Use it at your own risk.
+This is an unofficial client, unaffiliated with WhatsApp or Meta. Using unofficial clients may violate WhatsApp's terms and risk account suspension.
 
-## License
-
-MIT. Inter and Noto Color Emoji are under the SIL Open Font License; the icons
-and the chat wallpaper doodles are from [Lucide](https://lucide.dev) (ISC).
-The notification sounds are [Pidgin](https://pidgin.im)'s, under the GPL-2.0
-(see `assets/sounds/`).
+MIT; see [LICENSE](LICENSE) and [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md). Original ZapFast copyright and attribution are retained. Fonts, icons, wallpaper and notification sounds keep their respective licenses.

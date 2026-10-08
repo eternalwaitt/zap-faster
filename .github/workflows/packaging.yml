@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Published version (empty tests the published v0.13.1 fixture)
+        description: Published Zap Faster version (required for package builds)
         type: string
         default: ''
       publish:
@@ -39,12 +39,13 @@ permissions:
 
 jobs:
   packaging:
+    if: inputs.version != ''
     permissions:
       contents: write
     uses: crmne/native-packages/.github/workflows/package.yml@999768410cf53cdc68c8679c09cb14de1a6bca7b # v0.8.1
     with:
       targets: linux-amd64,linux-arm64
-      version: ${{ inputs.version || 'v0.13.1' }}
+      version: ${{ inputs.version }}
       publish: ${{ inputs.publish == true && inputs.version != '' }}
     secrets: inherit
 
@@ -98,10 +99,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends libasound2t64
-          set -- dist/native-packages/packages/"$TARGET"/appimage/zapfast-*-"$ARCH".AppImage
+          set -- dist/native-packages/packages/"$TARGET"/appimage/zap-faster-*-"$ARCH".AppImage
           test "$#" -eq 1
           chmod +x "$1"
-          "$1" --appimage-extract-and-run --version | grep -Ex '(zapfast|fastsapp) [0-9]+\.[0-9]+\.[0-9]+.*'
+          "$1" --appimage-extract-and-run --version | grep -Ex '(zap-faster|fastsapp) [0-9]+\.[0-9]+\.[0-9]+.*'
 
   user-installer:
     name: User installer

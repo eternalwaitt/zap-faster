@@ -1,4 +1,4 @@
-//! Starting ZapFast in the tray when the person logs in.
+//! Starting Zap Faster in the tray when the person logs in.
 //!
 //! The platform's own login-item entry is the only record: Settings reads it
 //! back rather than keeping a copy that could disagree with it.
@@ -6,7 +6,7 @@
 use std::io;
 use std::path::{Path, PathBuf};
 
-/// Argument that starts ZapFast without a window.
+/// Argument that starts Zap Faster without a window.
 pub const HIDDEN: &str = "--start-hidden";
 
 /// Whether this installation can register itself to start at login.
@@ -16,7 +16,7 @@ pub fn supported() -> bool {
     std::env::var_os("FLATPAK_ID").is_none() && executable().is_some()
 }
 
-/// Whether ZapFast is registered to start at login.
+/// Whether Zap Faster is registered to start at login.
 pub fn enabled() -> bool {
     platform::enabled()
 }
@@ -27,7 +27,7 @@ pub fn set(enabled: bool) -> io::Result<()> {
         return platform::remove();
     }
     let executable = executable()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "cannot locate ZapFast"))?;
+        .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "cannot locate Zap Faster"))?;
     platform::install(&executable)
 }
 
@@ -72,10 +72,10 @@ mod platform {
         format!(
             "[Desktop Entry]\n\
              Type=Application\n\
-             Name=ZapFast\n\
-             Comment=Start ZapFast in the tray\n\
+             Name=Zap Faster\n\
+             Comment=Start Zap Faster in the tray\n\
              Exec={} {HIDDEN}\n\
-             Icon=zapfast\n\
+             Icon=zap-faster\n\
              Terminal=false\n\
              X-GNOME-Autostart-enabled=true\n",
             exec_quote(&executable.to_string_lossy())

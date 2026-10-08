@@ -10,41 +10,41 @@ libraries:
     deb: libasound2t64
     rpm: alsa-lib
 nfpm:
-  name: zapfast
-  maintainer: Carmine Paolino <carmine@paolino.me>
-  homepage: https://zapfast.rocks
+  name: zap-faster
+  maintainer: eternalwaitt
+  homepage: https://github.com/eternalwaitt/zap-faster
   description: Fast native WhatsApp client
   license: MIT
-  provides: [fastsapp]
-  conflicts: [fastsapp]
-  replaces: [fastsapp]
+  provides: [zap-faster]
+  conflicts: [zapfast, fastsapp]
+  replaces: []
   contents:
-  - src: "@PAYLOAD@/zapfast-v@VERSION@-@TARGET@/zapfast"
-    dst: "/usr/bin/zapfast"
+  - src: "@PAYLOAD@/zap-faster-v@VERSION@-@TARGET@/zap-faster"
+    dst: "/usr/bin/zap-faster"
     file_info:
       mode: 493
-  - src: "@PAYLOAD@/zapfast-v@VERSION@-@TARGET@/LICENSE"
-    dst: "/usr/share/licenses/zapfast/LICENSE"
+  - src: "@PAYLOAD@/zap-faster-v@VERSION@-@TARGET@/LICENSE"
+    dst: "/usr/share/licenses/zap-faster/LICENSE"
     file_info:
       mode: 420
-  - src: "@PAYLOAD@/zapfast-v@VERSION@-@TARGET@/README.md"
-    dst: "/usr/share/doc/zapfast/README.md"
+  - src: "@PAYLOAD@/zap-faster-v@VERSION@-@TARGET@/README.md"
+    dst: "/usr/share/doc/zap-faster/README.md"
     file_info:
       mode: 420
-  - src: "@PAYLOAD@/zapfast-v@VERSION@-@TARGET@/packaging/applications/zapfast.desktop"
-    dst: "/usr/share/applications/zapfast.desktop"
+  - src: "@PAYLOAD@/zap-faster-v@VERSION@-@TARGET@/packaging/applications/zap-faster.desktop"
+    dst: "/usr/share/applications/zap-faster.desktop"
     file_info:
       mode: 420
-  - src: "@PAYLOAD@/zapfast-v@VERSION@-@TARGET@/packaging/icons/zapfast.svg"
-    dst: "/usr/share/icons/hicolor/scalable/apps/zapfast.svg"
+  - src: "@PAYLOAD@/zap-faster-v@VERSION@-@TARGET@/packaging/icons/zap-faster.svg"
+    dst: "/usr/share/icons/hicolor/scalable/apps/zap-faster.svg"
     file_info:
       mode: 420
-  - src: contrib/omarchy/zapfast.json.tpl
-    dst: /usr/share/zapfast/omarchy/zapfast.json.tpl
+  - src: contrib/omarchy/zap-faster.json.tpl
+    dst: /usr/share/zap-faster/omarchy/zap-faster.json.tpl
     file_info:
       mode: 420
-  - src: contrib/omarchy/zapfast-theme
-    dst: /usr/share/zapfast/omarchy/zapfast-theme
+  - src: contrib/omarchy/zap-faster-theme
+    dst: /usr/share/zap-faster/omarchy/zap-faster-theme
     file_info:
       mode: 493
   overrides:
@@ -98,7 +98,7 @@ targets:
       local: dist/macos-input
     native:
       command: [ruby, packaging/macos/dmg.rb, '@PAYLOAD@', '@PACKAGE@']
-      output: 'zapfast-@TAG@-macos-universal.dmg'
+      output: 'zap-faster-@TAG@-macos-universal.dmg'
   linux-amd64:
     platform: linux
     arch: amd64
@@ -109,8 +109,8 @@ targets:
     - rpm
     - appimage
     input:
-      local: dist/zapfast-v@VERSION@-x86_64-unknown-linux-gnu.tar.gz
-      release_asset: zapfast-v@VERSION@-x86_64-unknown-linux-gnu.tar.gz
+      local: dist/zap-faster-v@VERSION@-x86_64-unknown-linux-gnu.tar.gz
+      release_asset: zap-faster-v@VERSION@-x86_64-unknown-linux-gnu.tar.gz
   linux-arm64:
     platform: linux
     arch: arm64
@@ -121,77 +121,33 @@ targets:
     - rpm
     - appimage
     input:
-      local: dist/zapfast-v@VERSION@-aarch64-unknown-linux-gnu.tar.gz
-      release_asset: zapfast-v@VERSION@-aarch64-unknown-linux-gnu.tar.gz
+      local: dist/zap-faster-v@VERSION@-aarch64-unknown-linux-gnu.tar.gz
+      release_asset: zap-faster-v@VERSION@-aarch64-unknown-linux-gnu.tar.gz
 release:
-  repository: crmne/zapfast
+  repository: eternalwaitt/zap-faster
   checksums: checksums.txt
   prereleases: true
 assets:
   AMD64:
-    file: zapfast-v@VERSION@-x86_64-unknown-linux-gnu.tar.gz
-    local: dist/zapfast-v@VERSION@-x86_64-unknown-linux-gnu.tar.gz
+    file: zap-faster-v@VERSION@-x86_64-unknown-linux-gnu.tar.gz
+    local: dist/zap-faster-v@VERSION@-x86_64-unknown-linux-gnu.tar.gz
   ARM64:
-    file: zapfast-v@VERSION@-aarch64-unknown-linux-gnu.tar.gz
-    local: dist/zapfast-v@VERSION@-aarch64-unknown-linux-gnu.tar.gz
+    file: zap-faster-v@VERSION@-aarch64-unknown-linux-gnu.tar.gz
+    local: dist/zap-faster-v@VERSION@-aarch64-unknown-linux-gnu.tar.gz
   MACOS:
-    file: zapfast-v@VERSION@-macos-universal.dmg
-    local: dist/zapfast-v@VERSION@-macos-universal.dmg
+    file: zap-faster-v@VERSION@-macos-universal.dmg
+    local: dist/zap-faster-v@VERSION@-macos-universal.dmg
   SOURCE:
-    file: zapfast-@VERSION@.tar.gz
-    url: https://github.com/crmne/zapfast/archive/refs/tags/v@VERSION@.tar.gz
+    file: zap-faster-@VERSION@.tar.gz
+    url: https://github.com/eternalwaitt/zap-faster/archive/refs/tags/v@VERSION@.tar.gz
     checksummed: false
-    local: dist/zapfast-@VERSION@.tar.gz
+    local: dist/zap-faster-@VERSION@.tar.gz
 templates:
-  homebrew/zapfast.rb: packaging/homebrew/zapfast.rb.in
-  arch/zapfast/PKGBUILD: packaging/arch/zapfast/PKGBUILD.in
-  arch/zapfast/zapfast.install: packaging/arch/zapfast.install
-  arch/zapfast-bin/PKGBUILD: packaging/arch/zapfast-bin/PKGBUILD.in
-  arch/zapfast-bin/zapfast-bin.install: packaging/arch/zapfast.install
-  arch/zapfast-git/PKGBUILD: packaging/arch/zapfast-git/PKGBUILD.in
-  arch/zapfast-git/zapfast-git.install: packaging/arch/zapfast.install
-repositories:
-  homebrew:
-    url: https://github.com/crmne/homebrew-tap.git
-    push_url: https://github.com/crmne/homebrew-tap.git
-    branch: main
-    package_path: Casks
-    files:
-      homebrew/zapfast.rb: Casks/zapfast.rb
-    version_file: Casks/zapfast.rb
-    version_pattern: 'version "([^"]+)"'
-    publish: push
-  aur-source:
-    group: aur
-    url: https://aur.archlinux.org/zapfast.git
-    push_url: ssh://aur@aur.archlinux.org/zapfast.git
-    branch: master
-    package_path: "."
-    files:
-      arch/zapfast: "."
-    version_file: ".SRCINFO"
-    version_pattern: "^\\s*pkgver = (\\S+)"
-    publish: push
-  aur-bin:
-    group: aur
-    url: https://aur.archlinux.org/zapfast-bin.git
-    push_url: ssh://aur@aur.archlinux.org/zapfast-bin.git
-    branch: master
-    package_path: "."
-    files:
-      arch/zapfast-bin: "."
-    version_file: ".SRCINFO"
-    version_pattern: "^\\s*pkgver = (\\S+)"
-    publish: push
-  aur-git:
-    group: aur
-    url: https://aur.archlinux.org/zapfast-git.git
-    push_url: ssh://aur@aur.archlinux.org/zapfast-git.git
-    branch: master
-    package_path: "."
-    files:
-      arch/zapfast-git: "."
-    version_file: ".SRCINFO"
-    version_pattern: "^\\s*pkgver = (\\S+)"
-    publish: push
+  homebrew/zap-faster.rb: packaging/homebrew/zap-faster.rb.in
+  arch/zap-faster/PKGBUILD: packaging/arch/zap-faster/PKGBUILD.in
+  arch/zap-faster/zap-faster.install: packaging/arch/zap-faster.install
+  arch/zap-faster-bin/PKGBUILD: packaging/arch/zap-faster-bin/PKGBUILD.in
+  arch/zap-faster-bin/zap-faster-bin.install: packaging/arch/zap-faster.install
+  arch/zap-faster-git/PKGBUILD: packaging/arch/zap-faster-git/PKGBUILD.in
+  arch/zap-faster-git/zap-faster-git.install: packaging/arch/zap-faster.install
 version_file: Cargo.toml

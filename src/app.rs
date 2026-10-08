@@ -627,7 +627,7 @@ pub struct App {
     /// A notification went out this frame: highlight the taskbar entry of a
     /// window that is open but not focused.
     wants_attention: bool,
-    /// Whether ZapFast starts at login, when this installation supports it.
+    /// Whether Zap Faster starts at login, when this installation supports it.
     pub start_with_system: Option<bool>,
     /// Cross-thread window repaint handle.
     waker: Waker,
@@ -636,7 +636,7 @@ pub struct App {
     /// spawn.
     #[cfg(test)]
     test_tray_shown: Option<bool>,
-    /// Whether the tray menu offers "Lock ZapFast": whether an app lock
+    /// Whether the tray menu offers "Lock Zap Faster": whether an app lock
     /// password was set when it last changed.
     tray_lockable: bool,
     /// Whether the app is running without a window.
@@ -781,7 +781,7 @@ fn wayland_session() -> bool {
 }
 
 /// The app outlives its window: closing it with "keep running" on hides
-/// ZapFast, and the tray, a notification or another launch brings it back.
+/// Zap Faster, and the tray, a notification or another launch brings it back.
 impl fastframe_shell::Resident for App {
     fn closed(&self) -> fastframe_shell::Closed {
         if self.quit_requested {
@@ -845,17 +845,17 @@ fn tray_action(event: fastframe_tray::Event, window_hidden: bool) -> Option<Acti
     })
 }
 
-/// The tray item: ZapFast's icon, and a menu to show or hide the window,
+/// The tray item: Zap Faster's icon, and a menu to show or hide the window,
 /// to lock it while an app lock password is set, and to quit. The title and
 /// the menu never name a chat, so they are safe while locked.
 ///
-/// "Lock ZapFast" is always in the menu, hidden without a password;
+/// "Lock Zap Faster" is always in the menu, hidden without a password;
 /// `App::sync_tray` shows or hides it as the password is set or removed.
 fn tray_config(lockable: bool) -> fastframe_tray::Config {
     use fastframe_tray::MenuItem;
     fastframe_tray::Config {
         id: "zapfast",
-        title: "ZapFast".into(),
+        title: "Zap Faster".into(),
         icon: crate::util::app_icon_rgba,
         template_icon: Some(crate::util::tray_template_rgba),
         // The tray icon is the app icon, so hosts that draw only named icons
@@ -864,8 +864,8 @@ fn tray_config(lockable: bool) -> fastframe_tray::Config {
         // A left click on macOS toggles the window, as on Linux.
         menu_on_click: false,
         menu: vec![
-            MenuItem::action(TRAY_SHOW, "Show or hide ZapFast"),
-            MenuItem::action(TRAY_LOCK, "Lock ZapFast").visible(lockable),
+            MenuItem::action(TRAY_SHOW, "Show or hide Zap Faster"),
+            MenuItem::action(TRAY_LOCK, "Lock Zap Faster").visible(lockable),
             MenuItem::Separator,
             MenuItem::action(TRAY_QUIT, "Quit"),
         ],
@@ -997,7 +997,7 @@ impl App {
     pub fn start_hidden(&mut self) {
         self.hide_intent = true;
         // No window will attach the tray, which makes the macOS item; make
-        // it now without bringing ZapFast forward.
+        // it now without bringing Zap Faster forward.
         if let Some(tray) = &mut self.tray {
             tray.create_item();
         }
@@ -1052,7 +1052,7 @@ impl App {
                 _ => Palette::dark(),
             });
         let locale = crate::i18n::resolve(settings.interface_language);
-        // With a password set, ZapFast starts locked.
+        // With a password set, Zap Faster starts locked.
         let app_lock = crate::app_lock::AppLock::new(settings.app_lock_hash.is_some());
         let tray_lockable = settings.app_lock_hash.is_some();
         let mut app = Self {
@@ -1560,7 +1560,7 @@ impl App {
 
     /// Whether a panel shows the tray item now, so a hidden window can be
     /// brought back from it. On Linux the item exists before a panel shows
-    /// it (ZapFast started at login before the panel), and on a desktop
+    /// it (Zap Faster started at login before the panel), and on a desktop
     /// without one it never is.
     fn tray_shown(&self) -> bool {
         #[cfg(test)]
@@ -1585,7 +1585,7 @@ impl App {
         );
     }
 
-    /// Offers "Lock ZapFast" in the tray exactly while an app lock password
+    /// Offers "Lock Zap Faster" in the tray exactly while an app lock password
     /// is set, so setting or removing one changes the menu at once.
     fn sync_tray(&mut self) {
         let lockable = self.settings.app_lock_hash.is_some();
@@ -1647,6 +1647,7 @@ impl App {
             let name = self.display_name(&id);
             self.apply(
                 Action::StartChat {
+                    dismiss_dialog: false,
                     id: id.clone(),
                     name,
                 },
@@ -1787,11 +1788,11 @@ impl App {
     }
 
     /// Announces a message while the app lock is on: "New message" from
-    /// ZapFast, without the chat, the sender, the text or a picture, so the
+    /// Zap Faster, without the chat, the sender, the text or a picture, so the
     /// desktop shows nothing the lock screen hides. A chat's own sound and
     /// the mention sound would tell who wrote, so only the message sound
     /// plays, still silent for groups when group sounds are off. The click
-    /// target stays inside ZapFast: it opens the message once unlocked.
+    /// target stays inside Zap Faster: it opens the message once unlocked.
     fn notify_while_locked(&mut self, chat_id: &str, is_group: bool, message: &str, limited: bool) {
         self.wants_attention = true;
         let (title, body) = crate::notify::locked_lines(self.locale);
@@ -3344,7 +3345,7 @@ impl App {
             Event::UpdateAvailable { version, url } => {
                 let notice = crate::updates::Release { version, url };
                 if self.update.as_ref() != Some(&notice) {
-                    self.toast(format!("ZapFast {} is available", notice.version));
+                    self.toast(format!("Zap Faster {} is available", notice.version));
                 }
                 self.update = Some(notice);
             }
@@ -3878,7 +3879,7 @@ impl App {
         let open = !self.events_hidden && self.open_chat.as_deref() == Some(chat.as_str());
         // Re-arm the reply banner, unless the user has moved on to another
         // reply or an edit since.
-        if let Some(target) = quoting {
+        if let Some(target) = quoting.clone() {
             if open && self.reply_to.is_none() && self.editing.is_none() {
                 self.reply_to = Some(target);
                 self.focus_composer = true;
@@ -3935,7 +3936,7 @@ impl App {
         let message = match reason {
             Refusal::Offline => crate::i18n::gettext(
                 self.locale,
-                "Not sent: ZapFast is not connected to WhatsApp.",
+                "Not sent: Zap Faster is not connected to WhatsApp.",
             ),
             Refusal::QuoteUnavailable => crate::i18n::gettext(
                 self.locale,
@@ -4446,7 +4447,7 @@ impl App {
         chat: ChatId,
         latitude: f64,
         longitude: f64,
-        quoting: Option<String>,
+        quoting: Option<crate::model::ReplyTarget>,
     ) {
         self.backend.send(Command::SendLocation {
             chat,
@@ -5371,6 +5372,9 @@ impl App {
                 }
             }
             Action::OpenLog(path) => self.backend.send(Command::OpenLog(path)),
+            Action::SaveAttachments { files } => {
+                self.backend.send(Command::SaveAttachments { files });
+            }
             Action::SaveAttachmentAs { path, name } => {
                 self.backend
                     .send(Command::SaveAttachmentAs { source: path, name });
@@ -5407,7 +5411,7 @@ impl App {
                 } else if let Some(url) = crate::safety::external_url(&url) {
                     ctx.open_url(egui::OpenUrl::new_tab(url));
                 } else {
-                    self.toast_error("This link type cannot be opened from ZapFast");
+                    self.toast_error("This link type cannot be opened from Zap Faster");
                 }
             }
             Action::CopyText(text) => {
@@ -5461,6 +5465,7 @@ impl App {
                 let name = self.display_name_or(&recipient, original.sender_name.as_deref());
                 self.apply(
                     Action::StartChat {
+                        dismiss_dialog: false,
                         id: recipient.clone(),
                         name,
                     },
@@ -6481,7 +6486,7 @@ impl App {
                     self.toast_error(
                         crate::i18n::gettext(
                             self.locale,
-                            "You have {limit} labels, the most ZapFast keeps.",
+                            "You have {limit} labels, the most Zap Faster keeps.",
                         )
                         .replace("{limit}", &crate::archive::LABEL_LIMIT.to_string()),
                     );
@@ -7109,7 +7114,7 @@ impl App {
         }
     }
 
-    /// Collects a finished password check, and locks once ZapFast has gone
+    /// Collects a finished password check, and locks once Zap Faster has gone
     /// unused for the chosen time. Inactivity counts while the window is
     /// hidden too: only input in the window restarts it.
     fn tick_app_lock(&mut self, ctx: &egui::Context) {
@@ -7126,7 +7131,7 @@ impl App {
         if self.app_lock.is_locked() {
             return;
         }
-        // Recording a voice message is using ZapFast, keys or not.
+        // Recording a voice message is using Zap Faster, keys or not.
         if self.recording.is_some() {
             self.app_lock.note_input();
         }
@@ -9256,7 +9261,7 @@ mod tests {
         assert!(sent.iter().any(|command| matches!(command, Command::SaveDraft { chat: id, text } if id == chat && text.is_empty())));
         assert!(sent.iter().any(|command| matches!(command,
             Command::SendFiles { chat: id, caption: Some(caption), mentions, quoting: Some(quote), .. }
-            if id == chat && caption == "Hello @fixture-member" && mentions == &[member] && quote == "synthetic-quote")));
+            if id == chat && caption == "Hello @fixture-member" && mentions == &[member] && quote.id == "synthetic-quote")));
         app.switch_account(&second_id);
         assert!(
             matches!(app.pending.as_slice(), [Pending::File(path)] if path == std::path::Path::new("Second account.pdf"))
@@ -10192,7 +10197,7 @@ mod tests {
         );
     }
 
-    /// Demo and test runs share the machine with a linked ZapFast, whose real
+    /// Demo and test runs share the machine with a linked Zap Faster, whose real
     /// taskbar badge they must not overwrite.
     #[test]
     fn demo_and_test_runs_do_not_publish_a_taskbar_badge() {
@@ -11149,6 +11154,7 @@ mod tests {
             std::fs::write(path, b"fixture").unwrap();
         }
         let media = |path: Option<PathBuf>| Media {
+            album: None,
             mime: "image/png".into(),
             size: 7,
             width: None,
@@ -11163,6 +11169,7 @@ mod tests {
             }
             let mut row = message("chat", &format!("photo-{index}"), index as i64 * 2);
             row.content = Content::Image {
+                motion: None,
                 caption: None,
                 media: media(Some(path.clone())),
             };
@@ -11176,6 +11183,7 @@ mod tests {
         rows.push(sticker);
         let mut pending = message("chat", "pending", 7);
         pending.content = Content::Image {
+            motion: None,
             caption: None,
             media: media(None),
         };
@@ -11210,6 +11218,7 @@ mod tests {
         );
         let mut other = message("other", "photo", 0);
         other.content = Content::Image {
+            motion: None,
             caption: None,
             media: media(Some(paths[4].clone())),
         };
@@ -11268,8 +11277,10 @@ mod tests {
                 .map(|(index, path)| {
                     let mut row = message(&chat.id, &format!("photo-{index}"), index as i64);
                     row.content = Content::Image {
+                        motion: None,
                         caption: None,
                         media: Media {
+                            album: None,
                             mime: "image/png".into(),
                             size: 7,
                             width: None,
@@ -11454,7 +11465,7 @@ mod tests {
         assert!(!app.hide_intent);
     }
 
-    /// On Linux the tray item exists before a panel shows it (ZapFast started
+    /// On Linux the tray item exists before a panel shows it (Zap Faster started
     /// at login before the panel, or a desktop without one). Until a panel
     /// shows it, closing quits, a hidden start opens the window, and the
     /// window is not hidden, since nothing could bring it back.
@@ -11961,8 +11972,8 @@ mod tests {
             assert_eq!(
                 super::tray_config(lockable).menu,
                 [
-                    fastframe_tray::MenuItem::action(super::TRAY_SHOW, "Show or hide ZapFast"),
-                    fastframe_tray::MenuItem::action(super::TRAY_LOCK, "Lock ZapFast")
+                    fastframe_tray::MenuItem::action(super::TRAY_SHOW, "Show or hide Zap Faster"),
+                    fastframe_tray::MenuItem::action(super::TRAY_LOCK, "Lock Zap Faster")
                         .visible(lockable),
                     fastframe_tray::MenuItem::Separator,
                     fastframe_tray::MenuItem::action(super::TRAY_QUIT, "Quit"),
@@ -11971,7 +11982,7 @@ mod tests {
         }
     }
 
-    /// The tray offers "Lock ZapFast" as soon as a password is set and stops
+    /// The tray offers "Lock Zap Faster" as soon as a password is set and stops
     /// as soon as it is removed, not at the next start.
     #[test]
     fn the_tray_offers_the_lock_while_a_password_is_set() {
@@ -14505,6 +14516,8 @@ mod tests {
                         app.pending
                             .push(Pending::File(PathBuf::from("synthetic-attachment.png")));
                         Action::SendPending {
+                            account: app.account().id.clone(),
+                            mentions: Vec::new(),
                             chat: recipient.into(),
                             caption: "Private draft".into(),
                         }
@@ -15923,6 +15936,180 @@ mod tests {
         app.me = Some("42@lid".into());
         assert_eq!(app.display_name("42@lid"), "You");
     }
+    /// Private-reply refusals preserve the owning account's quote, text and voice clip.
+    #[test]
+    fn hidden_account_private_reply_recovery_keeps_the_visible_composer_unchanged() {
+        let directory = tempfile::tempdir().unwrap();
+        let (mut app, _) = two_accounts(directory.path());
+        let chat = "recipient@s.whatsapp.net";
+        for account in &mut app.accounts {
+            account
+                .chats
+                .push(Chat::new(chat.into(), "Synthetic recipient".into()));
+            account.open_chat = Some(chat.into());
+        }
+        let (backend, events) = Backend::detached();
+        app.accounts[1].backend = backend;
+        let quote = crate::model::ReplyTarget {
+            id: "source-message".into(),
+            chat: Some("source@g.us".into()),
+            destination_generation: 0,
+        };
+        for unsent in [
+            Unsent::Text("Hidden correction".into()),
+            Unsent::Voice(vec![0.25]),
+        ] {
+            events
+                .send(Event::SendRefused {
+                    chat: chat.into(),
+                    quoting: Some(quote.clone()),
+                    unsent,
+                    reason: Refusal::QuoteUnavailable,
+                })
+                .unwrap();
+        }
+        app.handle_events();
+        assert!(app.composer.is_empty());
+        assert!(app.reply_to.is_none());
+        assert!(app.unsent_voice.is_none());
+        assert_eq!(
+            app.accounts[1]
+                .unsent_voice
+                .as_ref()
+                .map(|(id, _)| id.as_str()),
+            Some(chat)
+        );
+        let second = app.accounts[1].id.clone();
+        app.switch_account(&second);
+        assert_eq!(app.composer, "Hidden correction");
+        assert_eq!(app.reply_to, Some(quote));
+        assert_eq!(app.unsent_voice, Some((chat.into(), vec![0.25])));
+    }
+    fn browser_link(text: &str) -> crate::chat_link::ChatLink {
+        crate::chat_link::ChatLink::parse(&format!("whatsapp://send?phone=15550100123&text={text}"))
+            .unwrap()
+    }
+    #[test]
+    fn a_browser_link_waits_for_the_archive_and_never_sends_the_draft() {
+        let mut app = app();
+        let (backend, mut commands, events) = Backend::recording_with_events();
+        app.backend = backend;
+        let ctx = egui::Context::default();
+        app.open_chat = Some("15550100124@s.whatsapp.net".into());
+        app.composer = "Existing draft in another chat".into();
+        app.open_chat_link(browser_link(
+            "Hola%2C+informaci%C3%B3n+%26+precio+%F0%9F%98%8A",
+        ));
+        app.handle_chat_links(&ctx);
+        assert_eq!(app.composer, "Existing draft in another chat");
+        assert_eq!(app.pending_chat_links.len(), 1);
+
+        events
+            .send(Event::Chats(vec![Chat::new(
+                "15550100124@s.whatsapp.net".into(),
+                "Previous chat".into(),
+            )]))
+            .unwrap();
+        app.handle_events();
+        app.handle_chat_links(&ctx);
+        app.apply_actions(&ctx);
+        assert_eq!(app.open_chat.as_deref(), Some("15550100123@s.whatsapp.net"));
+        assert_eq!(app.composer, "Hola, información & precio 😊");
+        assert_eq!(
+            app.drafts["15550100124@s.whatsapp.net"],
+            "Existing draft in another chat"
+        );
+        assert!(app.pending_chat_links.is_empty());
+        let mut saved = false;
+        while let Ok(command) = commands.try_recv() {
+            assert!(!matches!(
+                command,
+                Command::SendText { .. } | Command::EditText { .. }
+            ));
+            if let Command::SaveDraft { chat, text } = command
+                && chat == "15550100123@s.whatsapp.net"
+            {
+                assert_eq!(text, app.composer);
+                saved = true;
+            }
+        }
+        assert!(saved, "the prepared text is persisted only as a draft");
+    }
+    #[test]
+    fn browser_links_preserve_existing_drafts_for_the_same_recipient() {
+        let mut app = app();
+        app.chats_loaded = true;
+        app.chats.push(Chat::new(
+            "15550100123@s.whatsapp.net".into(),
+            "Peer".into(),
+        ));
+        app.open_chat = Some("15550100123@s.whatsapp.net".into());
+        app.composer = "Already typed".into();
+        let ctx = egui::Context::default();
+        app.open_chat_link(browser_link("Link+draft"));
+        app.handle_chat_links(&ctx);
+        assert_eq!(app.composer, "Already typed\nLink draft");
+        assert_eq!(app.chats.len(), 1);
+        app.open_chat_link(browser_link(""));
+        app.handle_chat_links(&ctx);
+        assert_eq!(app.composer, "Already typed\nLink draft");
+    }
+    #[test]
+    fn browser_drafts_do_not_edit_or_quote_an_existing_message() {
+        let mut app = app();
+        app.chats_loaded = true;
+        app.chats.push(Chat::new(
+            "15550100123@s.whatsapp.net".into(),
+            "Peer".into(),
+        ));
+        app.open_chat = Some("15550100123@s.whatsapp.net".into());
+        app.editing = Some("message-id".into());
+        app.reply_to = Some("quoted-id".into());
+        app.composer = "Message being edited".into();
+        app.open_chat_link(browser_link("Fresh+draft"));
+        app.handle_chat_links(&egui::Context::default());
+        assert_eq!(app.composer, "Fresh draft");
+        assert!(app.editing.is_none());
+        assert!(app.reply_to.is_none());
+    }
+    #[test]
+    fn browser_links_wait_for_the_app_unlock_and_cannot_open_locked_chats() {
+        let mut app = app();
+        app.chats_loaded = true;
+        app.app_lock.lock();
+        let ctx = egui::Context::default();
+        app.open_chat_link(browser_link("Waiting+draft"));
+        app.handle_chat_links(&ctx);
+        assert!(app.open_chat.is_none());
+        assert!(app.composer.is_empty());
+        assert_eq!(app.pending_chat_links.len(), 1);
+        app.app_lock.release();
+        app.handle_chat_links(&ctx);
+        assert_eq!(app.composer, "Waiting draft");
+
+        app.chats[0].locked = true;
+        app.open_chat = None;
+        app.composer.clear();
+        app.open_chat_link(browser_link("Hidden+draft"));
+        app.handle_chat_links(&ctx);
+        assert!(app.open_chat.is_none());
+        assert!(app.composer.is_empty());
+    }
+    #[test]
+    fn a_waiting_browser_link_keeps_the_account_it_was_opened_on() {
+        let directory = tempfile::tempdir().unwrap();
+        let (mut app, _) = two_accounts(directory.path());
+        let ctx = egui::Context::default();
+        let second = app.accounts[1].id.clone();
+        app.switch_account(&second);
+        app.open_chat_link(browser_link("Second+account"));
+        app.switch_account(&AccountId::first());
+        app.accounts[1].chats_loaded = true;
+        app.handle_chat_links(&ctx);
+        assert_eq!(app.account().id, second);
+        assert_eq!(app.composer, "Second account");
+        assert!(app.accounts[0].chats.is_empty());
+    }
 }
 
 #[cfg(test)]
@@ -16495,7 +16682,7 @@ mod app_lock_tests {
         app.lock_app();
         app.maybe_notify(CHAT, &message);
         let shown = app.notifications.shown.last().unwrap();
-        assert_eq!(shown.title, "ZapFast");
+        assert_eq!(shown.title, "Zap Faster");
         assert_eq!(shown.body, "New message");
         assert_eq!(shown.picture, None);
         assert_eq!(
@@ -16583,6 +16770,7 @@ mod app_lock_tests {
         }];
         let mut reply = plain.clone();
         reply.quoted = Some(crate::model::Quoted {
+            chat: None,
             id: "earlier".into(),
             sender: "15550001111@s.whatsapp.net".into(),
             sender_name: None,
@@ -16752,179 +16940,5 @@ fn edit_failure_message(locale: crate::i18n::Locale, error: &EditFailure) -> Str
             crate::i18n::gettext(locale, "The edit was sent but could not be saved locally")
                 .into_owned()
         }
-    }
-    /// Private-reply refusals preserve the owning account's quote, text and voice clip.
-    #[test]
-    fn hidden_account_private_reply_recovery_keeps_the_visible_composer_unchanged() {
-        let directory = tempfile::tempdir().unwrap();
-        let (mut app, _) = two_accounts(directory.path());
-        let chat = "recipient@s.whatsapp.net";
-        for account in &mut app.accounts {
-            account
-                .chats
-                .push(Chat::new(chat.into(), "Synthetic recipient".into()));
-            account.open_chat = Some(chat.into());
-        }
-        let (backend, events) = Backend::detached();
-        app.accounts[1].backend = backend;
-        let quote = crate::model::ReplyTarget {
-            id: "source-message".into(),
-            chat: Some("source@g.us".into()),
-            destination_generation: 0,
-        };
-        for unsent in [
-            Unsent::Text("Hidden correction".into()),
-            Unsent::Voice(vec![0.25]),
-        ] {
-            events
-                .send(Event::SendRefused {
-                    chat: chat.into(),
-                    quoting: Some(quote.clone()),
-                    unsent,
-                    reason: Refusal::QuoteUnavailable,
-                })
-                .unwrap();
-        }
-        app.handle_events();
-        assert!(app.composer.is_empty());
-        assert!(app.reply_to.is_none());
-        assert!(app.unsent_voice.is_none());
-        assert_eq!(
-            app.accounts[1]
-                .unsent_voice
-                .as_ref()
-                .map(|(id, _)| id.as_str()),
-            Some(chat)
-        );
-        let second = app.accounts[1].id.clone();
-        app.switch_account(&second);
-        assert_eq!(app.composer, "Hidden correction");
-        assert_eq!(app.reply_to, Some(quote));
-        assert_eq!(app.unsent_voice, Some((chat.into(), vec![0.25])));
-    }
-    fn browser_link(text: &str) -> crate::chat_link::ChatLink {
-        crate::chat_link::ChatLink::parse(&format!("whatsapp://send?phone=15550100123&text={text}"))
-            .unwrap()
-    }
-    #[test]
-    fn a_browser_link_waits_for_the_archive_and_never_sends_the_draft() {
-        let mut app = app();
-        let (backend, mut commands, events) = Backend::recording_with_events();
-        app.backend = backend;
-        let ctx = egui::Context::default();
-        app.open_chat = Some("15550100124@s.whatsapp.net".into());
-        app.composer = "Existing draft in another chat".into();
-        app.open_chat_link(browser_link(
-            "Hola%2C+informaci%C3%B3n+%26+precio+%F0%9F%98%8A",
-        ));
-        app.handle_chat_links(&ctx);
-        assert_eq!(app.composer, "Existing draft in another chat");
-        assert_eq!(app.pending_chat_links.len(), 1);
-
-        events
-            .send(Event::Chats(vec![Chat::new(
-                "15550100124@s.whatsapp.net".into(),
-                "Previous chat".into(),
-            )]))
-            .unwrap();
-        app.handle_events();
-        app.handle_chat_links(&ctx);
-        app.apply_actions(&ctx);
-        assert_eq!(app.open_chat.as_deref(), Some("15550100123@s.whatsapp.net"));
-        assert_eq!(app.composer, "Hola, información & precio 😊");
-        assert_eq!(
-            app.drafts["15550100124@s.whatsapp.net"],
-            "Existing draft in another chat"
-        );
-        assert!(app.pending_chat_links.is_empty());
-        let mut saved = false;
-        while let Ok(command) = commands.try_recv() {
-            assert!(!matches!(
-                command,
-                Command::SendText { .. } | Command::EditText { .. }
-            ));
-            if let Command::SaveDraft { chat, text } = command
-                && chat == "15550100123@s.whatsapp.net"
-            {
-                assert_eq!(text, app.composer);
-                saved = true;
-            }
-        }
-        assert!(saved, "the prepared text is persisted only as a draft");
-    }
-    #[test]
-    fn browser_links_preserve_existing_drafts_for_the_same_recipient() {
-        let mut app = app();
-        app.chats_loaded = true;
-        app.chats.push(Chat::new(
-            "15550100123@s.whatsapp.net".into(),
-            "Peer".into(),
-        ));
-        app.open_chat = Some("15550100123@s.whatsapp.net".into());
-        app.composer = "Already typed".into();
-        let ctx = egui::Context::default();
-        app.open_chat_link(browser_link("Link+draft"));
-        app.handle_chat_links(&ctx);
-        assert_eq!(app.composer, "Already typed\nLink draft");
-        assert_eq!(app.chats.len(), 1);
-        app.open_chat_link(browser_link(""));
-        app.handle_chat_links(&ctx);
-        assert_eq!(app.composer, "Already typed\nLink draft");
-    }
-    #[test]
-    fn browser_drafts_do_not_edit_or_quote_an_existing_message() {
-        let mut app = app();
-        app.chats_loaded = true;
-        app.chats.push(Chat::new(
-            "15550100123@s.whatsapp.net".into(),
-            "Peer".into(),
-        ));
-        app.open_chat = Some("15550100123@s.whatsapp.net".into());
-        app.editing = Some("message-id".into());
-        app.reply_to = Some("quoted-id".into());
-        app.composer = "Message being edited".into();
-        app.open_chat_link(browser_link("Fresh+draft"));
-        app.handle_chat_links(&egui::Context::default());
-        assert_eq!(app.composer, "Fresh draft");
-        assert!(app.editing.is_none());
-        assert!(app.reply_to.is_none());
-    }
-    #[test]
-    fn browser_links_wait_for_the_app_unlock_and_cannot_open_locked_chats() {
-        let mut app = app();
-        app.chats_loaded = true;
-        app.app_lock.lock();
-        let ctx = egui::Context::default();
-        app.open_chat_link(browser_link("Waiting+draft"));
-        app.handle_chat_links(&ctx);
-        assert!(app.open_chat.is_none());
-        assert!(app.composer.is_empty());
-        assert_eq!(app.pending_chat_links.len(), 1);
-        app.app_lock.release();
-        app.handle_chat_links(&ctx);
-        assert_eq!(app.composer, "Waiting draft");
-
-        app.chats[0].locked = true;
-        app.open_chat = None;
-        app.composer.clear();
-        app.open_chat_link(browser_link("Hidden+draft"));
-        app.handle_chat_links(&ctx);
-        assert!(app.open_chat.is_none());
-        assert!(app.composer.is_empty());
-    }
-    #[test]
-    fn a_waiting_browser_link_keeps_the_account_it_was_opened_on() {
-        let directory = tempfile::tempdir().unwrap();
-        let (mut app, _) = two_accounts(directory.path());
-        let ctx = egui::Context::default();
-        let second = app.accounts[1].id.clone();
-        app.switch_account(&second);
-        app.open_chat_link(browser_link("Second+account"));
-        app.switch_account(&AccountId::first());
-        app.accounts[1].chats_loaded = true;
-        app.handle_chat_links(&ctx);
-        assert_eq!(app.account().id, second);
-        assert_eq!(app.composer, "Second account");
-        assert!(app.accounts[0].chats.is_empty());
     }
 }

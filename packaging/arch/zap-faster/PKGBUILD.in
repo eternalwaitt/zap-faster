@@ -1,10 +1,10 @@
 # Maintainer: Carmine Paolino <carmine@paolino.me>
-pkgname=zapfast
+pkgname=zap-faster
 pkgver=@VERSION@
 pkgrel=@PKGREL@
 pkgdesc="Fast native WhatsApp client built with Rust and egui"
 arch=('x86_64' 'aarch64')
-url="https://zapfast.rocks"
+url="https://github.com/eternalwaitt/zap-faster"
 license=('MIT' 'GPL-2.0-only')
 install="${pkgname}.install"
 depends=('alsa-lib' 'alsa-plugins' 'libglvnd' 'libxkbcommon' 'libxkbcommon-x11' 'wayland' 'libx11' 'libxcb' 'libxcursor' 'libxi' 'libxrandr')
@@ -13,14 +13,14 @@ optdepends=('org.freedesktop.secrets: archive encryption key storage'
             'noto-fonts-emoji: colour emoji in messages and reactions'
             'xdg-desktop-portal: the file picker for attachments')
 provides=('fastsapp')
-conflicts=('zapfast-bin' 'zapfast-git' 'fastsapp' 'fastsapp-bin' 'fastsapp-git')
+conflicts=('zap-faster-bin' 'zap-faster-git' 'fastsapp' 'fastsapp-bin' 'fastsapp-git')
 replaces=('fastsapp')
 # !lto because ring compiles its own C and Arch's default CFLAGS put LTO
 # objects in the archive, which lld then cannot resolve: the link fails on
 # undefined ring_core_* symbols. The stable package is prebuilt and never
 # meets this.
 options=('!debug' '!lto')
-source=("${pkgname}-${pkgver}.tar.gz::https://github.com/crmne/zapfast/archive/refs/tags/v${pkgver}.tar.gz")
+source=("${pkgname}-${pkgver}.tar.gz::https://github.com/eternalwaitt/zap-faster/archive/refs/tags/v${pkgver}.tar.gz")
 sha256sums=('@SOURCE_SHA256@')
 
 prepare() {
@@ -53,20 +53,20 @@ check() {
 package() {
   cd "${srcdir}/${pkgname}-${pkgver}"
 
-  install -Dm755 "target/release/zapfast" "${pkgdir}/usr/bin/zapfast"
+  install -Dm755 "target/release/zap-faster" "${pkgdir}/usr/bin/zap-faster"
   install -Dm644 "LICENSE" "${pkgdir}/usr/share/licenses/${pkgname}/LICENSE"
   install -Dm644 "THIRD-PARTY-NOTICES.md" "${pkgdir}/usr/share/licenses/${pkgname}/THIRD-PARTY-NOTICES.md"
   install -Dm644 "README.md" "${pkgdir}/usr/share/doc/${pkgname}/README.md"
-  install -Dm644 "packaging/applications/zapfast.desktop" \
-    "${pkgdir}/usr/share/applications/zapfast.desktop"
-  install -Dm644 "packaging/icons/zapfast.svg" \
-    "${pkgdir}/usr/share/icons/hicolor/scalable/apps/zapfast.svg"
+  install -Dm644 "packaging/applications/zap-faster.desktop" \
+    "${pkgdir}/usr/share/applications/zap-faster.desktop"
+  install -Dm644 "packaging/icons/zap-faster.svg" \
+    "${pkgdir}/usr/share/icons/hicolor/scalable/apps/zap-faster.svg"
   # Releases predating theme integration remain valid packaging inputs.
-  if [[ -f "contrib/omarchy/zapfast.json.tpl" ]]; then
-    install -Dm644 "contrib/omarchy/zapfast.json.tpl" \
-      "${pkgdir}/usr/share/zapfast/omarchy/zapfast.json.tpl"
-    install -Dm755 "contrib/omarchy/zapfast-theme" \
-      "${pkgdir}/usr/share/zapfast/omarchy/zapfast-theme"
+  if [[ -f "contrib/omarchy/zap-faster.json.tpl" ]]; then
+    install -Dm644 "contrib/omarchy/zap-faster.json.tpl" \
+      "${pkgdir}/usr/share/zap-faster/omarchy/zap-faster.json.tpl"
+    install -Dm755 "contrib/omarchy/zap-faster-theme" \
+      "${pkgdir}/usr/share/zap-faster/omarchy/zap-faster-theme"
   fi
 
 }

@@ -450,7 +450,7 @@ fn banner(app: &mut App, ui: &mut egui::Ui) {
             let update = update.as_ref().expect("checked above");
             (
                 Icon::Info,
-                format!("ZapFast {} is available", update.version),
+                format!("Zap Faster {} is available", update.version),
                 palette.accent,
                 false,
                 Some(update.url.clone()),
@@ -1340,6 +1340,7 @@ mod idle_tests {
         let mut conversation = crate::app::Conversation::default();
         for i in 0..60 {
             conversation.messages.push(crate::model::Message {
+                history_order: None,
                 id: format!("m{i}"),
                 chat: chat.id.clone(),
                 sender: "123@s.whatsapp.net".into(),

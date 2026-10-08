@@ -8,7 +8,7 @@
 //! its picture is painted over it. New pictures are drawn on a worker
 //! thread, so a picker full of unseen emoji never stalls a frame; tests and
 //! demo builds draw them inside the frame so every screenshot shows them.
-//! These wrappers install ZapFast's choice before the first use.
+//! These wrappers install Zap Faster's choice before the first use.
 
 use egui::text::LayoutJob;
 use egui::{Pos2, Rect, TextFormat};
@@ -25,7 +25,7 @@ fn setup_for(renderer: crate::settings::EmojiRenderer) -> fastframe_emoji::Emoji
         .synchronous(cfg!(any(test, feature = "demo")))
 }
 
-/// Installs ZapFast's configured emoji source before any renderer can initialize.
+/// Installs Zap Faster's configured emoji source before any renderer can initialize.
 pub fn setup(renderer: crate::settings::EmojiRenderer) {
     static ONCE: std::sync::Once = std::sync::Once::new();
     ONCE.call_once(|| {

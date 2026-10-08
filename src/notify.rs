@@ -42,7 +42,7 @@ pub struct NotificationTarget {
 }
 
 #[cfg(any(target_os = "macos", test))]
-const MACOS_APPLICATION_ID: &str = "me.paolino.fastsapp";
+const MACOS_APPLICATION_ID: &str = "io.github.eternalwaitt.ZapFaster";
 
 #[cfg(target_os = "macos")]
 fn macos_application_ready() -> bool {
@@ -367,7 +367,7 @@ impl<T: std::io::Read + std::io::Seek + Send + Sync> ReadSeek for T {}
 /// name neither the chat nor the sender and carry none of the message.
 pub fn locked_lines(locale: crate::i18n::Locale) -> (String, String) {
     (
-        "ZapFast".to_owned(),
+        "Zap Faster".to_owned(),
         crate::i18n::gettext(locale, "New message").into_owned(),
     )
 }
@@ -384,7 +384,7 @@ pub fn lines(chat_name: &str, is_group: bool, sender: &str, summary: &str) -> (S
 
 /// What a Linux notification asks of the desktop's sound. The system sound is
 /// named, because notification servers such as Plasma's play nothing for an
-/// application without its own notification configuration. ZapFast's own sounds
+/// application without its own notification configuration. Zap Faster's own sounds
 /// and silence keep the desktop quiet.
 #[cfg(target_os = "linux")]
 fn sound_hint(system_sound: bool) -> notify_rust::Hint {
@@ -413,16 +413,16 @@ fn deliver(
     };
     let mut notification = notify_rust::Notification::new();
     notification
-        .appname("ZapFast")
+        .appname("Zap Faster")
         // Ties the notification to the installed application, so desktops
-        // list ZapFast in their notification settings and group by it.
+        // list Zap Faster in their notification settings and group by it.
         .hint(notify_rust::Hint::DesktopEntry(badge::desktop_file()))
         .summary(title)
         .body(body)
         // The freedesktop category for a received instant message, which
         // notification servers can sort, filter, or style by.
         .hint(notify_rust::Hint::Category("im.received".into()))
-        .icon("zapfast")
+        .icon("zap-faster")
         .action("default", "Open");
     notification.hint(sound_hint(system_sound));
     if let Some(picture) = picture {
@@ -513,11 +513,11 @@ fn deliver(
         return;
     }
     let mut notification = notify_rust::Notification::new();
-    notification.appname("ZapFast").summary(title).body(body);
+    notification.appname("Zap Faster").summary(title).body(body);
     #[cfg(target_os = "macos")]
     if system_sound {
         // The notification system's default sound; custom sounds are played
-        // by ZapFast, and None stays silent.
+        // by Zap Faster, and None stays silent.
         notification.sound_name("NSUserNotificationDefaultSoundName");
     }
     #[cfg(not(target_os = "macos"))]
@@ -737,7 +737,7 @@ mod tests {
         let mut notifications = Notifications::default();
         notifications.show(
             "Ada Lovelace".into(),
-            "A test from ZapFast, with a picture".into(),
+            "A test from Zap Faster, with a picture".into(),
             picture,
             NotificationSound::System,
             NotificationTarget {

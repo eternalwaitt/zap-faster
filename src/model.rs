@@ -115,7 +115,7 @@ impl ChatKind {
 }
 
 /// A local chat label: a name, a colour, and nothing that leaves this computer.
-/// Not a WhatsApp Business label; ZapFast neither reads nor syncs those.
+/// Not a WhatsApp Business label; Zap Faster neither reads nor syncs those.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Label {
     pub id: String,
@@ -1478,7 +1478,7 @@ pub struct StickerPack {
     pub name: String,
     pub dir: PathBuf,
     pub stickers: Vec<PathBuf>,
-    /// Put together in ZapFast, so stickers can be filed into it.
+    /// Put together in Zap Faster, so stickers can be filed into it.
     pub local: bool,
 }
 
@@ -1590,7 +1590,7 @@ pub struct Recipient {
 }
 
 /// Per-recipient receipts for one of our group messages, as far as they are
-/// known. Receipts are only kept from when ZapFast began recording them.
+/// known. Receipts are only kept from when Zap Faster began recording them.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct MessageReceipts {
     pub chat: ChatId,
@@ -1754,7 +1754,7 @@ pub enum Action {
         latitude: f64,
         longitude: f64,
         /// Quoted message id.
-        quoting: Option<String>,
+        quoting: Option<crate::model::ReplyTarget>,
     },
     ReplyInteractive {
         chat: ChatId,
@@ -1856,7 +1856,7 @@ pub enum Action {
     SendRecording,
     /// Drops a voice message the worker refused to send.
     DiscardUnsentVoice,
-    /// Opens a downloaded image in ZapFast's native preview. Only the file
+    /// Opens a downloaded image in Zap Faster's native preview. Only the file
     /// extension and existence are checked here, and anything else opens
     /// externally; an image that then fails to decode shows a message with an
     /// Open externally button inside the preview.
@@ -1872,7 +1872,7 @@ pub enum Action {
     FitImage,
     CloseImagePreview,
     OpenFile(PathBuf),
-    /// Opens ZapFast's log, or shows it in its folder when no application
+    /// Opens Zap Faster's log, or shows it in its folder when no application
     /// takes it, and says so when neither works.
     OpenLog(PathBuf),
     /// Copy a downloaded attachment to a native drag target.
@@ -2133,7 +2133,7 @@ pub enum Action {
     SetTheme(crate::settings::ThemeChoice),
     /// Draws the interface in the platform's font or in the bundled Inter.
     SetFont(crate::settings::FontChoice),
-    /// Chooses the emoji source to use after restarting ZapFast.
+    /// Chooses the emoji source to use after restarting Zap Faster.
     SetEmojiRenderer(crate::settings::EmojiRenderer),
     SetInterfaceLanguage(Option<crate::i18n::Locale>),
     SetCustomTheme(String),
@@ -2151,7 +2151,7 @@ pub enum Action {
         kind: crate::privacy::PrivacyKind,
         choice: crate::privacy::PrivacyChoice,
     },
-    /// Registers or removes the login entry that starts ZapFast in the tray.
+    /// Registers or removes the login entry that starts Zap Faster in the tray.
     SetStartWithSystem(bool),
     /// Sets the sound for mentions and replies to us (`true`) or for
     /// other new messages.
@@ -2220,7 +2220,7 @@ pub enum Action {
     AppLockForm(Option<crate::app_lock::FormMode>),
     /// Submits the Settings password form.
     SubmitAppLockForm,
-    /// How long ZapFast may go unused before it locks.
+    /// How long Zap Faster may go unused before it locks.
     SetAutoLock(crate::settings::AutoLock),
     Reconnect,
     /// Sets aside an archive whose key is gone and links again.
@@ -2250,7 +2250,7 @@ pub enum Action {
         account: AccountId,
         chat: ChatId,
         caption: String,
-        mentions: Vec<crate::app::ComposerMention>,
+        mentions: Vec<crate::model::ComposerMention>,
     },
     /// Removes one pending attachment.
     RemovePending(usize),

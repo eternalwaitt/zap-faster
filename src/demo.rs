@@ -1702,6 +1702,7 @@ fn media_album_sample(app: &mut App, grouped: bool) {
                 false,
                 at + index as i64,
                 Content::Image {
+                    motion: None,
                     caption: (index == 0).then(|| "Weekend references, all in one place".into()),
                     media: attachment,
                 },
@@ -1891,6 +1892,7 @@ pub fn apply_flags(app: &mut App, page: Option<&str>) {
                 let messages = &mut app.conversations.get_mut(SAMPLES[0].id).unwrap().messages;
                 messages[3].content.media_at_mut(None).unwrap().path = Some(saved);
                 messages[2].quoted = Some(crate::model::Quoted {
+                    chat: None,
                     id: "synthetic-quoted-message".into(),
                     sender: SAMPLES[0].id.into(),
                     sender_name: Some("Alex".into()),
@@ -2971,6 +2973,7 @@ pub fn apply_flags(app: &mut App, page: Option<&str>) {
                             false,
                             now + index as i64 * 2,
                             Content::Image {
+                                motion: None,
                                 caption: None,
                                 media: attachment,
                             },
@@ -4874,7 +4877,7 @@ mod tests {
             .filter_map(|(_, node)| node.label().or_else(|| node.value()))
             .collect();
         assert!(
-            labels.contains(&"Locked chats are read-only in ZapFast"),
+            labels.contains(&"Locked chats are read-only in Zap Faster"),
             "{labels:?}"
         );
         assert!(!labels.contains(&"admins"));
@@ -6684,6 +6687,7 @@ mod tests {
                     }
                 } else {
                     Content::Image {
+                        motion: None,
                         caption: None,
                         media,
                     }
@@ -10917,7 +10921,6 @@ mod tests {
             mentions: app.composer_mentions(),
             chat: chat.clone(),
             caption: "look".into(),
-            mentions: Vec::new(),
         });
         render(&mut app, &ctx);
         assert!(app.pending.is_empty(), "sent with the caption");
@@ -11345,6 +11348,7 @@ mod tests {
             );
             if kind == "quote" {
                 row.quoted = Some(Quoted {
+                    chat: None,
                     id: "original".into(),
                     sender: chat.clone(),
                     sender_name: Some("Fixture".into()),
@@ -14210,7 +14214,7 @@ mod tests {
         );
     }
 
-    /// A video sent before ZapFast made thumbnails has none. With its file
+    /// A video sent before Zap Faster made thumbnails has none. With its file
     /// here it still shows as a video; only without either is it a file card.
     #[test]
     fn a_video_without_a_thumbnail_shows_from_its_file() {

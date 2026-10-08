@@ -8,7 +8,7 @@ use clap::Parser;
 
 /// A fast, native WhatsApp client.
 #[derive(Debug, Parser)]
-#[command(name = "zapfast", version, about)]
+#[command(name = "zap-faster", version, about)]
 struct Cli {
     #[command(subcommand)]
     command: Option<Control>,
@@ -16,7 +16,7 @@ struct Cli {
     #[arg(short, long)]
     verbose: bool,
     /// Start in the tray without opening a window, when the tray is available
-    /// and ZapFast keeps running in the background. For login autostart.
+    /// and Zap Faster keeps running in the background. For login autostart.
     #[arg(long)]
     start_hidden: bool,
 
@@ -106,9 +106,9 @@ struct Cli {
 
 #[derive(Debug, clap::Subcommand)]
 enum Control {
-    /// Reload palettes in an already-running ZapFast without showing its window.
+    /// Reload palettes in an already-running Zap Faster without showing its window.
     ReloadThemes,
-    /// Quit an already-running ZapFast, which closing its window leaves in the tray.
+    /// Quit an already-running Zap Faster, which closing its window leaves in the tray.
     Quit,
 }
 
@@ -166,9 +166,9 @@ fn run() -> eframe::Result<()> {
         let (verb, not_running) = match command {
             Control::ReloadThemes => (
                 "reload-themes",
-                "ZapFast is not running, so there are no themes to reload.",
+                "Zap Faster is not running, so there are no themes to reload.",
             ),
-            Control::Quit => ("quit", "ZapFast is not running."),
+            Control::Quit => ("quit", "Zap Faster is not running."),
         };
         if let Err(error) = single_instance::send(&discovered.runtime, verb) {
             use std::io::ErrorKind;
@@ -182,7 +182,7 @@ fn run() -> eframe::Result<()> {
                     return Ok(());
                 }
             } else {
-                eprintln!("Could not reach the running ZapFast: {error}");
+                eprintln!("Could not reach the running Zap Faster: {error}");
             }
             std::process::exit(1);
         }
@@ -207,27 +207,27 @@ fn run() -> eframe::Result<()> {
         match single_instance::acquire(&discovered.runtime, &waker, verb) {
             single_instance::Outcome::Only(guard) => Some(guard),
             single_instance::Outcome::Surfaced if cli.start_hidden => {
-                eprintln!("ZapFast is already running");
+                eprintln!("Zap Faster is already running");
                 return Ok(());
             }
             single_instance::Outcome::Surfaced => {
-                eprintln!("ZapFast or FastsApp is already running; asked it to show its window");
+                eprintln!("Zap Faster or FastsApp is already running; asked it to show its window");
                 return Ok(());
             }
             single_instance::Outcome::Unanswered => {
                 if chat_link.is_some() {
                     eprintln!(
-                        "The running ZapFast cannot open this link. Quit it and open the link again."
+                        "The running Zap Faster cannot open this link. Quit it and open the link again."
                     );
                 } else {
-                    eprintln!("ZapFast is already running but did not answer");
+                    eprintln!("Zap Faster is already running but did not answer");
                 }
                 return Ok(());
             }
         }
     };
     let default_filter = default_log_filter(cli.verbose);
-    // A demo must not create empty ZapFast directories that would prevent a
+    // A demo must not create empty Zap Faster directories that would prevent a
     // later real launch from adopting the existing FastsApp session.
     let dirs = if demo {
         paths::AppDirs::under(&std::env::temp_dir().join(format!(
@@ -350,7 +350,7 @@ fn run() -> eframe::Result<()> {
                 )
             });
             eframe::run_native(
-                "ZapFast",
+                "Zap Faster",
                 native_options(demo_persistence.clone(), geometry),
                 Box::new(move |cc| {
                     let mut app = lease.take(&cc.egui_ctx);
@@ -392,19 +392,19 @@ fn is_graphics_failure(error: &eframe::Error) -> bool {
     )
 }
 
-/// The text of the dialog shown when ZapFast cannot start, kept apart from
+/// The text of the dialog shown when Zap Faster cannot start, kept apart from
 /// the dialog so it is tested on every platform.
 #[cfg(any(windows, test))]
 fn startup_failure_text(graphics: bool, details: &str, log: &std::path::Path) -> String {
     let summary = if graphics {
-        "ZapFast could not start because the graphics driver does not offer \
-         OpenGL 2.1 or newer, which ZapFast needs to draw its window.\n\n\
+        "Zap Faster could not start because the graphics driver does not offer \
+         OpenGL 2.1 or newer, which Zap Faster needs to draw its window.\n\n\
          Install the current driver from the maker of the graphics chip \
          (Intel, AMD or NVIDIA). The Microsoft Basic Display Adapter, some \
          virtual machines and some remote desktop sessions offer no usable \
          OpenGL."
     } else {
-        "ZapFast could not start."
+        "Zap Faster could not start."
     };
     format!(
         "{summary}\n\nDetails: {details}\n\nThe log may say more: {}",
@@ -427,7 +427,7 @@ fn startup_failure_dialog(error: &eframe::Error) {
         &paths::AppDirs::discover().log_file(),
     );
     let wide = |text: &str| text.encode_utf16().chain([0]).collect::<Vec<u16>>();
-    let (text, caption) = (wide(&text), wide("ZapFast"));
+    let (text, caption) = (wide(&text), wide("Zap Faster"));
     // SAFETY: both strings are NUL-terminated and outlive the call.
     unsafe {
         MessageBoxW(
@@ -473,7 +473,11 @@ fn native_options(
     let default_size = demo_size_arg().unwrap_or([1180.0, 780.0]);
     let demo = demo_persistence.is_some();
     let viewport = egui::ViewportBuilder::default()
-        .with_title(if demo { "ZapFast Demo" } else { "ZapFast" })
+        .with_title(if demo {
+            "Zap Faster Demo"
+        } else {
+            "Zap Faster"
+        })
         .with_app_id(if demo {
             "zapfast-demo".to_owned()
         } else {
@@ -804,7 +808,7 @@ mod startup_failure_tests {
             "The directory is not writable",
             std::path::Path::new("zapfast.log"),
         );
-        assert!(text.starts_with("ZapFast could not start."));
+        assert!(text.starts_with("Zap Faster could not start."));
         assert!(!text.contains("OpenGL"));
         assert!(text.contains("The directory is not writable"));
     }

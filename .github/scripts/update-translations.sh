@@ -5,9 +5,10 @@
 # support; normal Cargo builds do not.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
-crate=$(cargo metadata --format-version 1 --locked |
-    grep -o '"manifest_path":"[^"]*fastframe-i18n/Cargo.toml"' | head -n1 |
-    sed 's/^"manifest_path":"//; s/Cargo.toml"$//')
-exec "$crate/scripts/update-translations.sh" --package ZapFast --domain zapfast \
-    --bugs 'https://github.com/crmne/zapfast/issues/new?template=translation.yml' \
+crate=$(cargo metadata --format-version 1 --locked | python3 -c 'import json,sys; from pathlib import Path; d=json.load(sys.stdin); print(next(str(Path(p["manifest_path"]).parent) for p in d["packages"] if p["name"] == "fastframe-i18n"))')
+if command -v cygpath >/dev/null 2>&1; then
+    crate=$(cygpath -u "$crate")
+fi
+exec "$crate/scripts/update-translations.sh" --package "Zap Faster" --domain zapfast \
+    --bugs 'https://github.com/eternalwaitt/zap-faster/issues/new?template=translation.yml' \
     --keyword translated:2 --fuzzy-matching "$@"

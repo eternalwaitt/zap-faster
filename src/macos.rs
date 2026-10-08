@@ -44,19 +44,19 @@ fn item(id: &str, text: &str, shortcut: Option<&str>) -> MenuItem {
 
 fn build_menu() -> tray_icon::menu::Result<Menu> {
     let menu = Menu::new();
-    let app = Submenu::new("ZapFast", true);
+    let app = Submenu::new("Zap Faster", true);
     app.append_items(&[
-        &item("about", "About ZapFast", None),
+        &item("about", "About Zap Faster", None),
         &Native::separator(),
         &item("settings", "Settings…", Some("Super+Comma")),
         &Native::separator(),
         &Native::services(None),
         &Native::separator(),
-        &Native::hide(Some("Hide ZapFast")),
+        &Native::hide(Some("Hide Zap Faster")),
         &Native::hide_others(None),
         &Native::show_all(None),
         &Native::separator(),
-        &item("quit", "Quit ZapFast", Some("Super+KeyQ")),
+        &item("quit", "Quit Zap Faster", Some("Super+KeyQ")),
     ])?;
     let file = Submenu::new("File", true);
     file.append_items(&[
@@ -93,12 +93,12 @@ fn build_menu() -> tray_icon::menu::Result<Menu> {
         &Native::minimize(None),
         &Native::maximize(Some("Zoom")),
         &Native::separator(),
-        &item("show-window", "Show ZapFast", None),
+        &item("show-window", "Show Zap Faster", None),
     ])?;
     let help = Submenu::new("Help", true);
     help.append_items(&[
         &item("shortcuts", "Keyboard Shortcuts", Some("Super+Slash")),
-        &item("help", "ZapFast Help", None),
+        &item("help", "Zap Faster Help", None),
     ])?;
     menu.append_items(&[&app, &file, &edit, &view, &window, &help])?;
     window.set_as_windows_menu_for_nsapp();
@@ -230,7 +230,10 @@ fn action(id: &str) -> Option<Action> {
         "zoom-out" => Action::ZoomBy(-0.1),
         "zoom-reset" => Action::ResetZoom,
         "shortcuts" => Action::ShowDialog(Dialog::Shortcuts),
-        "help" => Action::OpenUrl("https://zapfast.rocks/using-zapfast/".into()),
+        "help" => Action::OpenUrl(
+            "https://github.com/eternalwaitt/zap-faster/blob/main/docs/_guide/using-zapfast.md"
+                .into(),
+        ),
         "show-window" => Action::ShowWindow,
         _ => return None,
     })

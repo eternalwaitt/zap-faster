@@ -394,9 +394,9 @@ impl Downloadable for PhoneSticker {
 fn device_name() -> String {
     let host = crate::util::hostname();
     if host.is_empty() {
-        "ZapFast".to_owned()
+        "Zap Faster".to_owned()
     } else {
-        format!("ZapFast ({host})")
+        format!("Zap Faster ({host})")
     }
 }
 
@@ -728,7 +728,7 @@ fn invite_error(error: &str) -> String {
 /// unconfirmed. A healthy sync answers well within this.
 const PRIVACY_GRACE: Duration = Duration::from_secs(10);
 
-/// How long ZapFast stays "available" after the window loses focus.
+/// How long Zap Faster stays "available" after the window loses focus.
 const PRESENCE_LINGER: Duration = Duration::from_secs(10);
 
 /// Waits longer after each failed lock-state recovery, so a collection the
@@ -971,7 +971,7 @@ struct Worker {
     favorites_pushing: bool,
     /// More favorite changes arrived while a push was running.
     favorites_again: bool,
-    /// The phone's favorites from before ZapFast followed them were replayed.
+    /// The phone's favorites from before Zap Faster followed them were replayed.
     favorites_recovered: bool,
     /// That replay is running.
     favorites_recovering: bool,
@@ -2745,7 +2745,7 @@ impl Worker {
             }
             E::ClientOutdated(_) => {
                 self.set_status(LinkStatus::Failed(
-                    "WhatsApp rejected this version of ZapFast. Update the app".to_owned(),
+                    "WhatsApp rejected this version of Zap Faster. Update the app".to_owned(),
                 ));
             }
             E::Messages(batch) => {
@@ -4916,7 +4916,7 @@ impl Worker {
         if let Some(chat) = destination
             && !self.destination_writable(chat)
         {
-            let error = "This conversation is read-only in ZapFast".to_owned();
+            let error = "This conversation is read-only in Zap Faster".to_owned();
             if matches!(&command, Command::CreatePoll { .. }) {
                 self.emit(Event::PollCreated {
                     chat: chat.clone(),
@@ -5807,7 +5807,7 @@ impl Worker {
                 let Some(client) = self.client.clone() else {
                     self.emit(Event::InvitePreview {
                         code,
-                        result: Err("ZapFast is not connected to WhatsApp".to_owned()),
+                        result: Err("Zap Faster is not connected to WhatsApp".to_owned()),
                     });
                     return;
                 };
@@ -5836,7 +5836,7 @@ impl Worker {
                 let Some(client) = self.client.clone() else {
                     self.emit(Event::InviteJoined {
                         code,
-                        result: Err("ZapFast is not connected to WhatsApp".to_owned()),
+                        result: Err("Zap Faster is not connected to WhatsApp".to_owned()),
                     });
                     return;
                 };
@@ -6123,7 +6123,7 @@ impl Worker {
                         // The phone has cleared it; say so rather than leave
                         // the messages here looking as if nothing happened.
                         self.emit(Event::Error(
-                            "The phone cleared this chat, but ZapFast could not clear it here"
+                            "The phone cleared this chat, but Zap Faster could not clear it here"
                                 .to_owned(),
                         ));
                     }
@@ -6854,13 +6854,13 @@ impl Worker {
         chat: ChatId,
         latitude: f64,
         longitude: f64,
-        quoting: Option<String>,
+        quoting: Option<crate::model::ReplyTarget>,
     ) {
         let unsent = || Unsent::Location {
             latitude,
             longitude,
         };
-        let (context, shown) = match self.quote(&chat, quoting.as_deref()) {
+        let (context, shown) = match self.quote_target(&chat, quoting.as_ref()) {
             Ok(Some((context, shown))) => (Some(context), Some(shown)),
             Ok(None) => (None, None),
             Err(reason) => {
@@ -6874,7 +6874,7 @@ impl Worker {
         };
         let mut message = outgoing_location(latitude, longitude, context);
         let expiration = self.apply_ephemeral(&chat, &mut message);
-        let id = client.generate_message_id();
+        let id = client.generate_message_id().into_string();
         let row = Message {
             id: id.clone(),
             chat: chat.clone(),
@@ -6882,6 +6882,7 @@ impl Worker {
             sender_name: None,
             from_me: true,
             timestamp: crate::util::now(),
+            history_order: None,
             content: Content::Location {
                 latitude,
                 longitude,
@@ -7016,7 +7017,7 @@ impl Worker {
             self.emit_chat(&job.0);
             if !reported_read_only {
                 self.emit(Event::Error(
-                    "This conversation is read-only in ZapFast".to_owned(),
+                    "This conversation is read-only in Zap Faster".to_owned(),
                 ));
                 reported_read_only = true;
             }
@@ -8032,7 +8033,7 @@ impl Worker {
             } else {
                 with_edit_deadline(EDIT_TIMEOUT, async {
                     client
-                        .edit_message_raw(jid, id.clone(), message)
+                        .edit_message_raw(jid, id.clone(), message, Default::default())
                         .await
                         .map(|_| ())
                         .map_err(|error| error.to_string())
@@ -8239,7 +8240,7 @@ impl Worker {
                 }
             }
             Err(_) => self.emit(Event::Error(
-                "WhatsApp accepted the deletion, but ZapFast could not remove its copy. Local cleanup is saved for restart or reconnect".to_owned(),
+                "WhatsApp accepted the deletion, but Zap Faster could not remove its copy. Local cleanup is saved for restart or reconnect".to_owned(),
             )),
 
         }
@@ -10871,6 +10872,7 @@ mod tests {
         let mut attachment = media(None, None, None, None);
         attachment.path = Some(path.clone());
         row.content = Content::Image {
+            motion: None,
             caption: Some("Synthetic caption".into()),
             media: attachment,
         };
@@ -14646,7 +14648,7 @@ mod receipt_tests {
         assert_eq!(id, "allowed");
         assert_eq!(job.0, PEER);
         let errors = std::iter::from_fn(|| events.try_recv().ok())
-            .filter(|event| matches!(event, Event::Error(reason) if reason == "This conversation is read-only in ZapFast"))
+            .filter(|event| matches!(event, Event::Error(reason) if reason == "This conversation is read-only in Zap Faster"))
             .count();
         assert_eq!(errors, 1, "skipped jobs report one error per advance");
         assert_eq!(
@@ -16462,7 +16464,7 @@ mod receipt_tests {
         let archived = |worker: &Worker| worker.archive.chat(PEER).unwrap().unwrap().archived;
         worker.store_message(incoming("before", 100), None, None);
         worker.archive.set_archived_at(PEER, true, 200_000).unwrap();
-        // Kept archived, the default, as ZapFast always behaved.
+        // Kept archived, the default, as Zap Faster always behaved.
         worker.store_message(incoming("kept", 300), None, None);
         assert!(archived(&worker));
 

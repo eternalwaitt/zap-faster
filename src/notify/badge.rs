@@ -28,10 +28,10 @@ fn launcher_uri(desktop_file: &str) -> String {
 
 /// The desktop file name for this installation, which is also the app id the
 /// window uses (see `main.rs`) and the `desktop-entry` of its notifications. A
-/// Flatpak install ships `rocks.zapfast.ZapFast.desktop` and sets the same id in
+/// Flatpak install ships `io.github.eternalwaitt.ZapFaster.desktop` and sets the same id in
 /// `FLATPAK_ID`.
 pub(super) fn desktop_file() -> String {
-    std::env::var("FLATPAK_ID").unwrap_or_else(|_| "zapfast".to_owned())
+    std::env::var("FLATPAK_ID").unwrap_or_else(|_| "zap-faster".to_owned())
 }
 
 /// Counts unread messages on the taskbar icon through the Unity Launcher API.
@@ -116,10 +116,10 @@ mod tests {
 
     #[test]
     fn launcher_uri_names_the_desktop_file() {
-        assert_eq!(launcher_uri("zapfast"), "application://zapfast.desktop");
+        assert_eq!(launcher_uri("zap-faster"), "application://zapfast.desktop");
         assert_eq!(
-            launcher_uri("rocks.zapfast.ZapFast"),
-            "application://rocks.zapfast.ZapFast.desktop"
+            launcher_uri("io.github.eternalwaitt.ZapFaster"),
+            "application://io.github.eternalwaitt.ZapFaster.desktop"
         );
     }
 
