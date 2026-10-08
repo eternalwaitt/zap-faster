@@ -1,4 +1,5 @@
-# Maintainer: Carmine Paolino <carmine@paolino.me>
+# Maintainer: eternalwaitt
+# Original package templates: Carmine Paolino <carmine@paolino.me>
 pkgname=zap-faster-bin
 pkgver=@VERSION@
 pkgrel=@PKGREL@
@@ -14,9 +15,9 @@ depends=('alsa-lib' 'alsa-plugins' 'libglvnd' 'libxkbcommon' 'libxkbcommon-x11' 
 optdepends=('org.freedesktop.secrets: archive encryption key storage'
             'noto-fonts-emoji: colour emoji in messages and reactions'
             'xdg-desktop-portal: the file picker for attachments')
-provides=('zap-faster' 'fastsapp')
-conflicts=('zap-faster' 'zap-faster-git' 'fastsapp' 'fastsapp-bin' 'fastsapp-git')
-replaces=('fastsapp-bin')
+provides=('zap-faster')
+conflicts=('zap-faster' 'zap-faster-git' 'zapfast' 'zapfast-bin' 'zapfast-git' 'fastsapp' 'fastsapp-bin' 'fastsapp-git')
+replaces=()
 options=('!debug' '!strip')
 _repo="https://github.com/eternalwaitt/zap-faster"
 source_x86_64=("${_repo}/releases/download/v${pkgver}/zap-faster-v${pkgver}-x86_64-unknown-linux-gnu.tar.gz")

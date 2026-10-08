@@ -1,4 +1,5 @@
-# Maintainer: Carmine Paolino <carmine@paolino.me>
+# Maintainer: eternalwaitt
+# Original package templates: Carmine Paolino <carmine@paolino.me>
 pkgname=zap-faster-git
 pkgver=@VERSION@
 pkgrel=1
@@ -8,13 +9,13 @@ url="https://github.com/eternalwaitt/zap-faster"
 license=('MIT' 'GPL-2.0-only')
 install="${pkgname}.install"
 depends=('alsa-lib' 'alsa-plugins' 'libglvnd' 'libxkbcommon' 'libxkbcommon-x11' 'wayland' 'libx11' 'libxcb' 'libxcursor' 'libxi' 'libxrandr')
-makedepends=('git' 'cargo' 'cmake' 'perl')
+makedepends=('git' 'cargo' 'cmake' 'clang' 'perl')
 optdepends=('org.freedesktop.secrets: archive encryption key storage'
             'noto-fonts-emoji: colour emoji in messages and reactions'
             'xdg-desktop-portal: the file picker for attachments')
-provides=('zap-faster' 'fastsapp')
-conflicts=('zap-faster' 'zap-faster-bin' 'fastsapp' 'fastsapp-bin' 'fastsapp-git')
-replaces=('fastsapp-git')
+provides=('zap-faster')
+conflicts=('zap-faster' 'zap-faster-bin' 'zapfast' 'zapfast-bin' 'zapfast-git' 'fastsapp' 'fastsapp-bin' 'fastsapp-git')
+replaces=()
 # !lto because ring compiles its own C and Arch's default CFLAGS put LTO
 # objects in the archive, which lld then cannot resolve: the link fails on
 # undefined ring_core_* symbols. The stable package is prebuilt and never

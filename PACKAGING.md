@@ -5,11 +5,10 @@ it pins the shared CLI and nFPM versions and declares Linux amd64/arm64 inputs,
 DEB/RPM/AppImage contents, dependencies, recipe templates and downstream repositories.
 Application assets and native recipes stay in `packaging/`.
 
-Version 0.13.0 introduces the Zap Faster name and `zapfast` binary. Its AUR recipes
-provide and replace the corresponding FastsApp packages. The GitHub repository is
-`eternalwaitt/zap-faster`, so source archives extract into `zapfast-VERSION`. Use the
-configuration from the matching tag to rebuild an older FastsApp release.
-Existing release files keep their original names.
+Version 0.20.0 introduces the Zap Faster fork and `zap-faster` binary. The GitHub
+repository is `eternalwaitt/zap-faster`, so source archives extract into
+`zap-faster-VERSION`. Recipes belong to this fork and do not replace upstream
+packages automatically. AUR and Homebrew publication destinations are not configured.
 
 ```sh
 gem install native-packages --version 0.8.1
@@ -94,8 +93,9 @@ their original signatures; this setup does not replace release assets.
 
 Linux releases build on Ubuntu 24.04 (glibc 2.39). DEB/RPM recipes declare
 runtime-loaded Wayland, X11 and EGL libraries as well as ALSA and its PulseAudio
-plugin. Packaging CI builds both architectures from the published v0.13.1 fixture
-on PRs; release runs use their own tag. Clean Ubuntu, Debian and Fedora containers
+plugin. Packaging CI builds both architectures from an explicitly supplied published
+fork version; release runs use their own tag. Source-only PRs run the user-installer
+checks. Clean Ubuntu, Debian and Fedora containers
 install and remove each package, check GUI libraries loaded with `dlopen`, and
 verify desktop and theme assets. Run the same check locally with
 `bash packaging/test-install.sh ubuntu:24.04 /path/to/native-packages-output`. The macOS job selects `macos-universal`
@@ -104,7 +104,7 @@ recipe generation to the Linux packaging job after release assets exist.
 
 ## Flatpak
 
-`packaging/flatpak/rocks.zapfast.Zap Faster.yml` builds from source, with offline Cargo
+`packaging/flatpak/io.github.eternalwaitt.ZapFaster.yml` builds from source, with offline Cargo
 sources generated from the selected revision's lockfile. The adjacent bundle
 manifest reuses the Linux release binary, as in Spotifast. Both grant Wayland/X11,
 GPU, audio, network, keyring and tray access; attachments chosen by the user use
@@ -115,7 +115,7 @@ Generate a pinned Flathub checkout (Python needs `aiohttp`, `tomlkit` and `PyYAM
 
 ```sh
 packaging/flatpak/flathub.sh vX.Y.Z /path/to/flathub-checkout
-flatpak-builder --user --install --force-clean build-dir /path/to/flathub-checkout/rocks.zapfast.Zap Faster.yml
+flatpak-builder --user --install --force-clean build-dir /path/to/flathub-checkout/io.github.eternalwaitt.ZapFaster.yml
 ```
 
 Flathub submission/review is a separate publication step; the manifest alone does
