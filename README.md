@@ -33,6 +33,9 @@ conversation without saving a contact. See [Chats](docs/_guide/using-zapfast.md#
 Attachment drafts retain their pictures, files, captions and replies while
 ZapFast is running. Quitting discards them. See [Attachments](docs/_guide/using-zapfast.md#attachments).
 
+Settings offers **Keep chat list position after sending**. See
+[Settings & files](docs/_guide/settings-and-files.md) for how it affects the chat list.
+
 ## Install
 
 ```sh
