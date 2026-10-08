@@ -66,11 +66,20 @@ jobs:
       # The repository pins its toolchain; add the cross-target's standard
       # library to the toolchain the pin actually resolves to.
       - run: rustup target add ${{ matrix.target }}
+      - name: Configure Windows ARM compiler
+        if: matrix.target == 'aarch64-pc-windows-msvc'
+        shell: bash
+        run: |
+          # whisper.cpp deliberately rejects MSVC's ARM backend. Keep the MSVC
+          # ABI while compiling its native code with the hosted LLVM toolchain.
+          echo CMAKE_GENERATOR=Ninja >> "$GITHUB_ENV"
+          echo CC_aarch64_pc_windows_msvc=clang-cl >> "$GITHUB_ENV"
+          echo CXX_aarch64_pc_windows_msvc=clang-cl >> "$GITHUB_ENV"
       - name: GUI build dependencies
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libxkbcommon-dev libwayland-dev libgl1-mesa-dev libasound2-dev cmake perl
+          sudo apt-get install -y libxkbcommon-dev libwayland-dev libgl1-mesa-dev libasound2-dev cmake perl libclang-dev
       # No compiler cache: published binaries never build from outputs
       # restored from an Actions cache.
       - run: cargo build --locked --release --target ${{ matrix.target }}

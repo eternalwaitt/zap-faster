@@ -2949,6 +2949,18 @@ pub fn apply_flags(app: &mut App, page: Option<&str>) {
                     }
                 }
             }
+            "voice-transcript" => {
+                if let Some(conversation) = app
+                    .open_chat
+                    .as_ref()
+                    .and_then(|chat| app.conversations.get_mut(chat))
+                {
+                    conversation.transcripts.insert(
+                        "ada-voice".into(),
+                        "I'll meet you by the station at half past six.".into(),
+                    );
+                }
+            }
             "recording" => app.recording = Some(crate::audio::Recorder::rehearsal()),
             // Shows the native image preview over the demo chat.
             "preview" => {
@@ -5270,6 +5282,7 @@ mod tests {
             "compose-emoji",
             "voice",
             "voice,voice-menu",
+            "voice,voice-transcript",
             "recording",
             "preview",
             "gifs",

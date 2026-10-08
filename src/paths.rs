@@ -243,6 +243,12 @@ impl AppDirs {
         self.cache.join("media")
     }
 
+    /// Local speech-to-text models. Models are downloaded separately rather
+    /// than bundled into the application binary.
+    pub fn transcription_model_dir(&self) -> PathBuf {
+        self.cache.join("models")
+    }
+
     /// Profile pictures keyed by chat.
     pub fn avatar_cache_dir(&self) -> PathBuf {
         self.cache.join("avatars")
@@ -300,6 +306,11 @@ pub struct AccountDirs {
 }
 
 impl AccountDirs {
+    /// Models for local voice transcription, separate from the encrypted archive.
+    pub fn transcription_model_dir(&self) -> PathBuf {
+        self.cache.join("models")
+    }
+
     pub fn ensure(&self) -> std::io::Result<()> {
         for dir in [&self.state, &self.cache] {
             let mut builder = std::fs::DirBuilder::new();

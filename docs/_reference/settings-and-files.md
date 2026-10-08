@@ -242,3 +242,7 @@ the new one.
 Each run replaces `zapfast.log` and records warnings and errors, never
 message contents, phone numbers, or keys. Include the end of this file when
 reporting an issue. **Settings > Files > Log > Open** shows it.
+
+## Zap Faster local transcripts
+
+Whisper transcribes voice notes locally. The first request downloads a 1.5 GB model from Hugging Face and verifies its pinned digest. Automatic transcription is off by default. Transcript text stays in the encrypted account archive; models are cached under the account cache `models/` directory. Transcription is unavailable through locked chat or app-lock surfaces.

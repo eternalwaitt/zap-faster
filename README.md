@@ -18,7 +18,7 @@ cd zap-faster
 cargo run --locked --release
 ```
 
-Linux builds need the development packages for ALSA, OpenGL, Wayland and xkbcommon, plus CMake and Perl. Windows builds need Visual Studio C++ Build Tools, CMake and Perl. macOS builds need Xcode Command Line Tools and CMake. See [the build and packaging guide](PACKAGING.md).
+Linux builds need the development packages for ALSA, OpenGL, Wayland and xkbcommon, plus CMake, Clang and Perl. Windows builds need Visual Studio C++ Build Tools, CMake, LLVM/libclang and Perl. macOS builds need Xcode Command Line Tools and CMake. See [the build and packaging guide](PACKAGING.md).
 
 ## What this fork adds
 
@@ -27,6 +27,7 @@ Linux builds need the development packages for ALSA, OpenGL, Wayland and xkbcomm
 - Private group replies, multi-recipient forwarding, batch deletion and safer failed edits.
 - Unsent drafts at the top of the chat list and an option to keep the list position after sending.
 - Audio files distinct from voice notes, AAC video sound, playback speeds and motion photos.
+- On-demand local Whisper voice transcripts, with optional automatic transcription (off by default).
 - Chat links as unsent drafts, unsaved phone-number chats, location sharing and phone-number actions.
 - Screen privacy, read-receipt privacy, attachment storage usage and notification throttling.
 - Group descriptions and disappearing-message timers, keyboard shortcuts and mouse-side navigation.
@@ -39,7 +40,7 @@ Quit ZapFast before starting Zap Faster. The fork intentionally retains ZapFast'
 
 Zap Faster checks its own GitHub releases for updates and verifies them with its own Ed25519 signing key. It does not consume upstream ZapFast updates. Update signatures are separate from Windows Authenticode and Apple notarization; download pages state any platform signing limitations.
 
-The [settings and files guide](docs/_reference/settings-and-files.md) describes local storage, encryption and network behavior. GIF search contacts Giphy only when used and configured; preview links and location map links may contact the relevant website when opened. No feature uploads message content to a transcription or analytics service.
+The [settings and files guide](docs/_reference/settings-and-files.md) describes local storage, encryption and network behavior. GIF search contacts Giphy only when used and configured; preview links and location map links may contact the relevant website when opened. Whisper downloads its 1.5 GB multilingual model from Hugging Face when first requested, verifies its pinned SHA-256 digest, and transcribes on your CPU. Transcripts are stored in the encrypted account archive; model files are in the account cache. No feature uploads message content to a transcription or analytics service.
 
 ## Contribute
 

@@ -54,6 +54,7 @@
                   pkg-config
                   cmake
                   perl
+                  llvmPackages.libclang
                 ]
                 # On macOS the app links the system frameworks instead.
                 ++ lib.optionals isLinux [
@@ -66,6 +67,7 @@
                   libxi
                   libxrandr
                 ];
+              LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
               ZAPFAST_TEST_RTL_FONT = "${pkgs.dejavu_fonts}/share/fonts/truetype/DejaVuSans.ttf";
             }
             // pkgs.lib.optionalAttrs isLinux {
@@ -121,6 +123,7 @@
             nativeBuildInputs =
               with pkgs;
               [
+                llvmPackages.libclang
                 pkg-config
                 cmake
                 perl
@@ -140,6 +143,7 @@
                 libx11
               ]
             );
+            LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
             ZAPFAST_TEST_RTL_FONT = "${pkgs.dejavu_fonts}/share/fonts/truetype/DejaVuSans.ttf";
 
             postFixup =

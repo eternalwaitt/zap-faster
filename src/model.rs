@@ -1813,6 +1813,11 @@ pub enum Action {
         chat: ChatId,
         message: String,
     },
+    /// Transcribes a voice message locally with Whisper.
+    Transcribe {
+        chat: ChatId,
+        message: String,
+    },
     /// Plays or pauses a downloaded voice or audio message.
     PlayVoice {
         message: String,

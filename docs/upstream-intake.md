@@ -37,7 +37,7 @@ Snapshot: 2026-10-08. Upstream baseline: `df01459`. This is an explicit review q
 | [#319](https://github.com/crmne/zapfast/pull/319) | Keep the visible message date while scrolling | [eternalwaitt](https://github.com/eternalwaitt) | `e6f2fc82a81b` | Imported: [`ba697e8`](https://github.com/eternalwaitt/zap-faster/commit/ba697e870d462f765902864c5e35c1a4421ff747) |
 | [#320](https://github.com/crmne/zapfast/pull/320) | Start conversations with unsaved phone numbers | [eternalwaitt](https://github.com/eternalwaitt) | `2494698d1b31` | Imported: [`0fb020a`](https://github.com/eternalwaitt/zap-faster/commit/0fb020af4b2fa58479aee2029d323613b3b22e03) |
 | [#321](https://github.com/crmne/zapfast/pull/321) | Delete all selected messages from the context menu | [eternalwaitt](https://github.com/eternalwaitt) | `fa5e816305c1` | Imported: [`d8252d3`](https://github.com/eternalwaitt/zap-faster/commit/d8252d38f58bcfabed1e62fa5bd01ba4a992153d) |
-| [#324](https://github.com/crmne/zapfast/pull/324) | Add local voice message transcription with yapsnap | [SeanPedersen](https://github.com/SeanPedersen) | `3fb8a3ad0c99` | Pending: Transcription helper introduces a separate local daemon; review separately from self-contained local inference. |
+| [#324](https://github.com/crmne/zapfast/pull/324) | Add local voice message transcription with yapsnap | [SeanPedersen](https://github.com/SeanPedersen) | `3fb8a3ad0c99` | Not selected: separate local daemon; self-contained local Whisper from #284 is imported. |
 | [#332](https://github.com/crmne/zapfast/pull/332) | Add a Messages theme for macOS | [iclems](https://github.com/iclems) | `690077352406` | Pending: Theme rewrites current rendering and removes newer selection/privacy behavior; needs a focused adaptation. |
 | [#335](https://github.com/crmne/zapfast/pull/335) | Choose a custom interface font in Settings | [mauriciobc](https://github.com/mauriciobc) | `e65c80f8860b` | Pending: Custom fonts must be adapted to current App/Account constructors and file ownership. |
 | [#336](https://github.com/crmne/zapfast/pull/336) | Select and confirm multiple forwarding recipients | [eternalwaitt](https://github.com/eternalwaitt) | `9a105a48b4da` | Imported: [`03f2206`](https://github.com/eternalwaitt/zap-faster/commit/03f2206c5593f505a377b839fd6e79b43f7a179c) |
@@ -84,8 +84,23 @@ Snapshot: 2026-10-08. Upstream baseline: `df01459`. This is an explicit review q
 
 ## Our already merged and closed PRs
 
-Own PRs #280, #282, #283, #339, #343 and #384 are included in the upstream baseline. The 14 own open PRs are imported above. Closed #284 (local Whisper transcripts) is being reviewed separately for optional local-only inference; it is not advertised as available until it passes the combined checks.
+Own PRs #280, #282, #283, #339, #343 and #384 are included in the upstream baseline. The 14 own open PRs are imported above. Closed [#284](https://github.com/crmne/zapfast/pull/284) is also imported with account-safe local Whisper inference and screen-privacy adaptation. Automatic transcription remains off by default.
 
 ## Upstream issues
 
 Link upstream issues in local reports instead of copying private reports or mass-duplicating the tracker. Track a concrete reproduction and the local fix/release. Imported fixes may resolve upstream reports, but an issue is not marked fixed without checking the reported behavior.
+
+## Related open reports reviewed
+
+Imported changes target these reports. Offline regression tests cover the relevant behavior; live phone behavior still requires an attended check. These upstream issues remain open, and the fork does not change their status.
+
+| Report | Local change |
+| --- | --- |
+| [#464: Play videos at 1.5x and 2x, like voice messages](https://github.com/crmne/zapfast/issues/464) | Upstream PR #465 imported above |
+| [#389: Show group descriptions in group info](https://github.com/crmne/zapfast/issues/389) | Upstream PR #391 imported above |
+| [#361: Audio files render as voice notes, hiding the audio type](https://github.com/crmne/zapfast/issues/361) | Upstream PR #365 imported above |
+| [#323: Feature Request: Support pasting images and videos directly from Windows Clipboard (Snipping Tool)](https://github.com/crmne/zapfast/issues/323) | Upstream PR #317 imported above |
+| [#265: Video Playback without sound](https://github.com/crmne/zapfast/issues/265) | Upstream PR #462 imported above |
+| [#247: Image grouping](https://github.com/crmne/zapfast/issues/247) | Upstream PR #286 imported above |
+
+Reconnect send retries (#452), notification audio routing (#421), large attachments (#316/#386), and sticker rate limiting (#405) remain separate reproduction targets. The protocol update is not proof that every send or 429 issue is fixed.

@@ -269,6 +269,17 @@ pub enum Command {
         chat: ChatId,
         message: String,
     },
+    /// Transcribes a voice message locally with Whisper.
+    Transcribe {
+        chat: ChatId,
+        message: String,
+    },
+    /// Internal result from the blocking Whisper worker.
+    TranscriptionResult {
+        chat: ChatId,
+        message: String,
+        result: Result<crate::transcribe::Completed, String>,
+    },
     /// Requests a profile picture; `full` selects the info-dialog size.
     FetchAvatar {
         id: String,
@@ -1018,6 +1029,23 @@ pub enum Event {
         chat: ChatId,
         message: String,
         result: Result<PathBuf, String>,
+    },
+    /// A requested local transcription finished or failed.
+    Transcribed {
+        chat: ChatId,
+        message: String,
+        text: Result<String, String>,
+    },
+    /// Current local transcription phase, including one-time model download.
+    TranscriptionProgress {
+        chat: ChatId,
+        message: String,
+        progress: crate::transcribe::Progress,
+    },
+    /// Cached transcriptions for a loaded chat.
+    Transcripts {
+        chat: ChatId,
+        transcripts: Vec<(String, String)>,
     },
     /// Link-time history sync state.
     Syncing(bool),

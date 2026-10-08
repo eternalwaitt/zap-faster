@@ -6,7 +6,7 @@ msgstr ""
 "Project-Id-Version: Zap Faster 0.20.0\n"
 "Report-Msgid-Bugs-To: https://github.com/eternalwaitt/zap-faster/issues/new?"
 "template=translation.yml\n"
-"POT-Creation-Date: 2026-10-08 20:00-0300\n"
+"POT-Creation-Date: 2026-10-08 20:08-0300\n"
 "PO-Revision-Date: 2026-09-25 23:00-0300\n"
 "Last-Translator: ZapFast contributors\n"
 "Language-Team: Chinese (Simplified)\n"
@@ -274,7 +274,7 @@ msgstr "已锁定"
 msgid "No favorites yet"
 msgstr "还没有收藏"
 
-#: src/ui/chats.rs:967 src/app.rs:2199
+#: src/ui/chats.rs:967 src/app.rs:2205
 msgid "Message yourself"
 msgstr "给自己发消息"
 
@@ -286,7 +286,7 @@ msgstr "草稿："
 msgid "Remove from favorites"
 msgstr "取消收藏"
 
-#: src/ui/chats.rs:1305 src/ui/chats.rs:1687 src/ui/conversation.rs:4856
+#: src/ui/chats.rs:1305 src/ui/chats.rs:1687 src/ui/conversation.rs:5002
 #: src/ui/dialogs.rs:1275 src/ui/picker.rs:1622
 msgid "Add to favorites"
 msgstr "添加到收藏"
@@ -385,139 +385,165 @@ msgstr "语音消息（{duration}）未发送"
 msgid "Discard voice message"
 msgstr "放弃语音消息"
 
-#: src/ui/conversation.rs:2304 src/notify/badge_windows.rs:255
+#: src/ui/conversation.rs:2323 src/notify/badge_windows.rs:255
 #, rust-format
 msgid "{} unread message"
 msgid_plural "{} unread messages"
 msgstr[0] "{} 条未读消息"
 
-#: src/ui/conversation.rs:2465 src/app.rs:2181 src/app.rs:2200
+#: src/ui/conversation.rs:2484 src/app.rs:2187 src/app.rs:2206
 msgid "You"
 msgstr "你"
 
-#: src/ui/conversation.rs:2476
+#: src/ui/conversation.rs:2495
 #, rust-format
 msgid "Select message from {sender}, {time}: {summary}"
 msgstr "选择{sender}在{time}发送的消息：{summary}"
 
-#: src/ui/conversation.rs:3903 src/ui/conversation.rs:4865
+#: src/ui/conversation.rs:3386
+#, fuzzy
+msgid "Downloading voice message…"
+msgstr "正在下载贴图包…"
+
+#: src/ui/conversation.rs:3393
+#, rust-format
+msgid "Downloading Whisper large-v3-turbo… {percent}%"
+msgstr ""
+
+#: src/ui/conversation.rs:3400
+msgid "Downloading Whisper large-v3-turbo (1.5 GB)…"
+msgstr ""
+
+#: src/ui/conversation.rs:3404
+msgid "Verifying Whisper model…"
+msgstr ""
+
+#: src/ui/conversation.rs:3407
+msgid "Loading Whisper model…"
+msgstr ""
+
+#: src/ui/conversation.rs:3410
+msgid "Transcribing locally…"
+msgstr ""
+
+#: src/ui/conversation.rs:4020 src/ui/conversation.rs:5011
 msgid "Open in system player"
 msgstr "用系统播放器打开"
 
-#: src/ui/conversation.rs:3904 src/ui/conversation.rs:4424
-#: src/ui/conversation.rs:4929 src/ui/message_info.rs:17
+#: src/ui/conversation.rs:4021 src/ui/conversation.rs:4541
+#: src/ui/conversation.rs:5075 src/ui/message_info.rs:17
 msgid "Message info"
 msgstr "消息信息"
 
-#: src/ui/conversation.rs:3905 src/ui/conversation.rs:4941
+#: src/ui/conversation.rs:4022 src/ui/conversation.rs:5087
 msgid "Reload earlier messages"
 msgstr ""
 
-#: src/ui/conversation.rs:4783
+#: src/ui/conversation.rs:4900
 msgid "Reply privately"
 msgstr "私下回复"
 
-#: src/ui/conversation.rs:4877 src/ui/image_preview.rs:77
+#: src/ui/conversation.rs:5023 src/ui/image_preview.rs:77
 #: src/ui/image_preview.rs:265
 msgid "Copy image"
 msgstr "复制图片"
 
-#: src/ui/conversation.rs:5323
+#: src/ui/conversation.rs:5469
 msgid "Location"
 msgstr "位置"
 
-#: src/ui/conversation.rs:5368
+#: src/ui/conversation.rs:5514
 msgid "Live location ended"
 msgstr "实时位置已结束"
 
-#: src/ui/conversation.rs:5370 src/ui/conversation.rs:5573
+#: src/ui/conversation.rs:5516 src/ui/conversation.rs:5719
 msgid "Live location"
 msgstr "实时位置"
 
-#: src/ui/conversation.rs:5380
+#: src/ui/conversation.rs:5526
 #, rust-format
 msgid "Updated {time}"
 msgstr "更新于 {time}"
 
-#: src/ui/conversation.rs:5395 src/ui/conversation.rs:5581
+#: src/ui/conversation.rs:5541 src/ui/conversation.rs:5727
 msgid "Open WhatsApp on your phone to follow it."
 msgstr "在手机上打开 WhatsApp 即可查看。"
 
-#: src/ui/conversation.rs:5439
+#: src/ui/conversation.rs:5585
 msgid "Chat"
 msgstr "聊天"
 
-#: src/ui/conversation.rs:5454
+#: src/ui/conversation.rs:5600
 msgid "Add"
 msgstr "添加"
 
-#: src/ui/conversation.rs:5502
+#: src/ui/conversation.rs:5648
 #, rust-format
 msgid "{} sticker"
 msgid_plural "{} stickers"
 msgstr[0] "{} 个贴图"
 
-#: src/ui/conversation.rs:5515
+#: src/ui/conversation.rs:5661
 msgid "View stickers"
 msgstr "查看贴图"
 
-#: src/ui/conversation.rs:5599
+#: src/ui/conversation.rs:5745
 msgid "View once photo. For your privacy, it opens only on your phone."
 msgstr "一次性照片。为保护你的隐私，它只能在手机上打开。"
 
-#: src/ui/conversation.rs:5603
+#: src/ui/conversation.rs:5749
 msgid "View once video. For your privacy, it opens only on your phone."
 msgstr "一次性视频。为保护你的隐私，它只能在手机上打开。"
 
-#: src/ui/conversation.rs:5607
+#: src/ui/conversation.rs:5753
 msgid "View once voice message. For your privacy, it opens only on your phone."
 msgstr "一次性语音消息。为保护你的隐私，它只能在手机上打开。"
 
-#: src/ui/conversation.rs:5611
+#: src/ui/conversation.rs:5757
 msgid "View once audio. For your privacy, it opens only on your phone."
 msgstr "一次性音频。为保护你的隐私，它只能在手机上打开。"
 
-#: src/ui/conversation.rs:5615
+#: src/ui/conversation.rs:5761
 msgid "View once message. For your privacy, it opens only on your phone."
 msgstr "一次性消息。为保护你的隐私，它只能在手机上打开。"
 
-#: src/ui/conversation.rs:5617
+#: src/ui/conversation.rs:5763
 msgid "This message can only be seen on your phone."
 msgstr "此消息只能在手机上查看。"
 
-#: src/ui/conversation.rs:6599 src/ui/dialogs.rs:531
+#: src/ui/conversation.rs:6745 src/ui/dialogs.rs:531
 msgid "Message"
 msgstr "发送消息"
 
-#: src/ui/conversation.rs:6600
+#: src/ui/conversation.rs:6746
 msgid "Copy number"
 msgstr "复制号码"
 
-#: src/ui/conversation.rs:6836 src/ui/locations.rs:44
+#: src/ui/conversation.rs:6982 src/ui/locations.rs:44
 msgid "Open in a map"
 msgstr "在地图中打开"
 
-#: src/ui/conversation.rs:7668
+#: src/ui/conversation.rs:7814
 msgid "Pause"
 msgstr "暂停"
 
-#: src/ui/conversation.rs:7670 src/ui/settings.rs:2004
+#: src/ui/conversation.rs:7816 src/ui/settings.rs:2013
 msgid "Play"
 msgstr "播放"
 
-#: src/ui/conversation.rs:7697
+#: src/ui/conversation.rs:7843
 msgid "Back to the message (Esc)"
 msgstr "返回消息 (Esc)"
 
-#: src/ui/conversation.rs:7699
+#: src/ui/conversation.rs:7845
 msgid "Fill the window"
 msgstr "填满窗口"
 
-#: src/ui/conversation.rs:7729
+#: src/ui/conversation.rs:7875
 msgid "Unmute"
 msgstr "取消静音"
 
-#: src/ui/conversation.rs:7731
+#: src/ui/conversation.rs:7877
 msgid "Mute"
 msgstr "静音"
 
@@ -537,7 +563,7 @@ msgstr "正在检查号码…"
 
 #: src/ui/dialogs.rs:548 src/ui/dialogs.rs:1282 src/ui/dialogs.rs:1387
 #: src/ui/dialogs.rs:1477 src/ui/dialogs.rs:1539 src/ui/locations.rs:61
-#: src/ui/settings.rs:1075 src/ui/settings.rs:1790 src/ui/lock.rs:142
+#: src/ui/settings.rs:1083 src/ui/settings.rs:1799 src/ui/lock.rs:142
 msgid "Cancel"
 msgstr "取消"
 
@@ -821,7 +847,7 @@ msgstr ""
 msgid "Wallpaper"
 msgstr "壁纸"
 
-#: src/ui/settings.rs:353 src/app.rs:2657
+#: src/ui/settings.rs:353 src/app.rs:2663
 msgid "Image"
 msgstr "图片"
 
@@ -887,412 +913,420 @@ msgstr "自动下载文件"
 msgid "Files up to 64 MiB download as they come into view."
 msgstr "文件进入视野后自动下载，最大 64 MiB。"
 
-#: src/ui/settings.rs:441
+#: src/ui/settings.rs:439
+msgid "Transcribe received voice messages automatically"
+msgstr ""
+
+#: src/ui/settings.rs:442
+msgid "Uses the local Whisper large-v3-turbo model (1.5 GB) and your CPU."
+msgstr ""
+
+#: src/ui/settings.rs:449
 msgid "Pause other media while recording or playing"
 msgstr "录音或播放时暂停其他媒体"
 
-#: src/ui/settings.rs:442
+#: src/ui/settings.rs:450
 msgid "Music and videos in other apps resume afterwards."
 msgstr "其他应用中的音乐和视频会在结束后继续播放。"
 
-#: src/ui/settings.rs:447 src/ui/settings.rs:456
+#: src/ui/settings.rs:455 src/ui/settings.rs:464
 msgid "Keep chats archived"
 msgstr "保持聊天归档"
 
-#: src/ui/settings.rs:450
+#: src/ui/settings.rs:458
 msgid "When off, a new message brings an archived chat back to the list."
 msgstr "关闭后，新消息会把已归档的聊天移回列表。"
 
-#: src/ui/settings.rs:471
+#: src/ui/settings.rs:479
 msgid "Locked chats code"
 msgstr "已锁定聊天的密码"
 
-#: src/ui/settings.rs:474
+#: src/ui/settings.rs:482
 msgid ""
 "Opens the Locked tab on this computer. It hides chats, it does not encrypt "
 "them."
 msgstr "在这台电脑上打开“已锁定”标签页。它只是隐藏聊天，并不会加密。"
 
-#: src/ui/settings.rs:486
+#: src/ui/settings.rs:494
 msgid "Secret code"
 msgstr "密码"
 
-#: src/ui/settings.rs:495
+#: src/ui/settings.rs:503
 msgid "Clear"
 msgstr "清除"
 
-#: src/ui/settings.rs:505 src/ui/settings.rs:2132
+#: src/ui/settings.rs:513 src/ui/settings.rs:2141
 msgid "Notifications"
 msgstr "通知"
 
-#: src/ui/settings.rs:507
+#: src/ui/settings.rs:515
 msgid "Desktop notifications"
 msgstr "桌面通知"
 
-#: src/ui/settings.rs:510
+#: src/ui/settings.rs:518
 msgid "For chats you are not looking at. Muted chats stay quiet."
 msgstr "用于你当前没在看的聊天。静音的聊天不会提醒。"
 
-#: src/ui/settings.rs:518
+#: src/ui/settings.rs:526
 #, fuzzy
 msgid "Limit repeat notifications"
 msgstr "桌面通知"
 
-#: src/ui/settings.rs:521
+#: src/ui/settings.rs:529
 msgid ""
 "After one notification, a chat stays quiet for 10 minutes. Opening the chat "
 "resets this. In groups, mentions and replies to you still notify."
 msgstr ""
 
-#: src/ui/settings.rs:547 src/ui/settings.rs:2139
+#: src/ui/settings.rs:555 src/ui/settings.rs:2148
 msgid "Play sounds for group messages"
 msgstr "群组消息播放提示音"
 
-#: src/ui/settings.rs:550
+#: src/ui/settings.rs:558
 msgid "When off, only mentions and replies to you make a sound."
 msgstr "关闭后，只有提及你或回复你时才会响。"
 
-#: src/ui/settings.rs:558
+#: src/ui/settings.rs:566
 msgid "Privacy"
 msgstr "隐私"
 
-#: src/ui/settings.rs:560
+#: src/ui/settings.rs:568
 msgid "Off for your account, so only groups get them."
 msgstr "你的账号已关闭，因此只有群组会发送。"
 
-#: src/ui/settings.rs:562
+#: src/ui/settings.rs:570
 msgid "Let people see when you read their messages."
 msgstr "让对方看到你何时读了他们的消息。"
 
-#: src/ui/settings.rs:565
+#: src/ui/settings.rs:573
 msgid "Send read receipts"
 msgstr "发送已读回执"
 
-#: src/ui/settings.rs:570
+#: src/ui/settings.rs:578
 msgid "Show when you are typing"
 msgstr "显示“正在输入”"
 
-#: src/ui/settings.rs:581
+#: src/ui/settings.rs:589
 msgid ""
 "Could not load your account privacy. Trying again when Zap Faster reconnects."
 msgstr "无法加载账号隐私设置。Zap Faster 重新连接后会再试一次。"
 
-#: src/ui/settings.rs:586
+#: src/ui/settings.rs:594
 msgid "Connect to WhatsApp to change your account privacy."
 msgstr "连接 WhatsApp 后才能更改账号隐私。"
 
-#: src/ui/settings.rs:591
+#: src/ui/settings.rs:599
 msgid "Loading your account privacy…"
 msgstr "正在加载账号隐私…"
 
-#: src/ui/settings.rs:616
+#: src/ui/settings.rs:624
 msgid "Change who is excluded on your phone."
 msgstr "请在手机上更改排除的联系人。"
 
-#: src/ui/settings.rs:636 src/ui/settings.rs:901
+#: src/ui/settings.rs:644 src/ui/settings.rs:909
 msgid "Screen privacy"
 msgstr ""
 
-#: src/ui/settings.rs:639 src/ui/settings.rs:1211
+#: src/ui/settings.rs:647 src/ui/settings.rs:1220
 msgid "System"
 msgstr "系统"
 
-#: src/ui/settings.rs:641
+#: src/ui/settings.rs:649
 msgid "Keep running when the window closes"
 msgstr "关闭窗口后继续运行"
 
-#: src/ui/settings.rs:642
+#: src/ui/settings.rs:650
 msgid "Quit from the tray or with Ctrl+Q."
 msgstr "从托盘退出，或按 Ctrl+Q。"
 
-#: src/ui/settings.rs:647 src/ui/settings.rs:655
+#: src/ui/settings.rs:655 src/ui/settings.rs:663
 msgid "Start at login"
 msgstr "登录时启动"
 
-#: src/ui/settings.rs:648
+#: src/ui/settings.rs:656
 msgid "Starts in the tray, without a window."
 msgstr "在托盘中启动，不打开窗口。"
 
-#: src/ui/settings.rs:671
+#: src/ui/settings.rs:679
 msgid "Check for updates"
 msgstr "检查更新"
 
-#: src/ui/settings.rs:674
+#: src/ui/settings.rs:682
 msgid "Asks GitHub once a day, sending only the Zap Faster version."
 msgstr "每天向 GitHub 查询一次，只发送 Zap Faster 版本号。"
 
-#: src/ui/settings.rs:679
+#: src/ui/settings.rs:687
 msgid "Download updates automatically"
 msgstr "自动下载更新"
 
-#: src/ui/settings.rs:682
+#: src/ui/settings.rs:690
 msgid ""
 "You still choose when to restart. Package managers and Flatpak update Zap "
 "Faster themselves."
 msgstr "重启时机仍由你决定。包管理器和 Flatpak 会自行更新 Zap Faster。"
 
-#: src/ui/settings.rs:695
+#: src/ui/settings.rs:703
 #, rust-format
 msgid "Using {proxy} from the environment."
 msgstr "正在使用环境中的 {proxy}。"
 
-#: src/ui/settings.rs:703
+#: src/ui/settings.rs:711
 msgid "For WhatsApp, media, and updates. Empty uses ALL_PROXY or HTTPS_PROXY."
 msgstr "用于 WhatsApp、媒体和更新。留空则使用 ALL_PROXY 或 HTTPS_PROXY。"
 
-#: src/ui/settings.rs:706
+#: src/ui/settings.rs:714
 msgid "Proxy"
 msgstr "代理"
 
-#: src/ui/settings.rs:726
+#: src/ui/settings.rs:734
 msgid "GIPHY API key"
 msgstr "GIPHY API 密钥"
 
-#: src/ui/settings.rs:730
+#: src/ui/settings.rs:738
 msgid "For GIF search. Replaces the key this build includes."
 msgstr "用于 GIF 搜索。会替换此版本内置的密钥。"
 
-#: src/ui/settings.rs:735
+#: src/ui/settings.rs:743
 msgid "For GIF search. Get a free key at developers.giphy.com."
 msgstr "用于 GIF 搜索。可在 developers.giphy.com 获取免费密钥。"
 
-#: src/ui/settings.rs:751 src/ui/settings.rs:2186 src/ui/settings.rs:2192
+#: src/ui/settings.rs:759 src/ui/settings.rs:2195 src/ui/settings.rs:2201
 msgid "Account"
 msgstr "账号"
 
-#: src/ui/settings.rs:754 src/ui/settings.rs:1689
+#: src/ui/settings.rs:762 src/ui/settings.rs:1698
 msgid "Your name"
 msgstr "你的名字"
 
-#: src/ui/settings.rs:756 src/ui/settings.rs:1697
+#: src/ui/settings.rs:764 src/ui/settings.rs:1706
 msgctxt "profile"
 msgid "About"
 msgstr "个人简介"
 
-#: src/ui/settings.rs:759 src/ui/settings.rs:1666
+#: src/ui/settings.rs:767 src/ui/settings.rs:1675
 msgid "Change profile picture"
 msgstr "更换头像"
 
-#: src/ui/settings.rs:760 src/ui/settings.rs:1749 src/ui/settings.rs:2188
+#: src/ui/settings.rs:768 src/ui/settings.rs:1758 src/ui/settings.rs:2197
 msgid "Unlink this computer"
 msgstr "取消关联此电脑"
 
-#: src/ui/settings.rs:761 src/ui/settings.rs:1760 src/ui/accounts.rs:123
+#: src/ui/settings.rs:769 src/ui/settings.rs:1769 src/ui/accounts.rs:123
 msgid "Add account"
 msgstr "添加账号"
 
-#: src/ui/settings.rs:762 src/ui/settings.rs:1736
+#: src/ui/settings.rs:770 src/ui/settings.rs:1745
 msgid "Remove this account"
 msgstr ""
 
-#: src/ui/settings.rs:767
+#: src/ui/settings.rs:775
 msgid "Files"
 msgstr "文件"
 
-#: src/ui/settings.rs:770
+#: src/ui/settings.rs:778
 msgid "Open folder"
 msgstr "打开文件夹"
 
-#: src/ui/settings.rs:772
+#: src/ui/settings.rs:780
 msgid "Message archive"
 msgstr "消息存档"
 
-#: src/ui/settings.rs:790 src/ui/settings.rs:827
+#: src/ui/settings.rs:798 src/ui/settings.rs:835
 msgid "Downloads"
 msgstr "下载"
 
-#: src/ui/settings.rs:803
+#: src/ui/settings.rs:811
 msgid "Change…"
 msgstr "更改…"
 
-#: src/ui/settings.rs:815
+#: src/ui/settings.rs:823
 msgid "Use default"
 msgstr "使用默认"
 
-#: src/ui/settings.rs:826 src/ui/settings.rs:1505
+#: src/ui/settings.rs:834 src/ui/settings.rs:1514
 msgid "Storage used"
 msgstr "已用存储空间"
 
-#: src/ui/settings.rs:828
+#: src/ui/settings.rs:836
 msgid "Space"
 msgstr "空间"
 
-#: src/ui/settings.rs:829 src/ui/settings.rs:1553
+#: src/ui/settings.rs:837 src/ui/settings.rs:1562
 msgid "Images"
 msgstr "图片"
 
-#: src/ui/settings.rs:830 src/ui/settings.rs:1561
+#: src/ui/settings.rs:838 src/ui/settings.rs:1570
 msgid "Videos"
 msgstr "视频"
 
-#: src/ui/settings.rs:831 src/ui/settings.rs:1569
+#: src/ui/settings.rs:839 src/ui/settings.rs:1578
 msgid "Stickers and GIFs"
 msgstr "贴纸和 GIF"
 
-#: src/ui/settings.rs:832 src/ui/settings.rs:1578
+#: src/ui/settings.rs:840 src/ui/settings.rs:1587
 msgid "Other"
 msgstr "其他"
 
-#: src/ui/settings.rs:833 src/ui/settings.rs:913
+#: src/ui/settings.rs:841 src/ui/settings.rs:921
 msgid "Messages"
 msgstr "消息"
 
-#: src/ui/settings.rs:839
+#: src/ui/settings.rs:847
 msgid "Log"
 msgstr "日志"
 
-#: src/ui/settings.rs:846
+#: src/ui/settings.rs:854
 msgid "Open"
 msgstr "打开"
 
-#: src/ui/settings.rs:856 src/ui/settings.rs:1879
+#: src/ui/settings.rs:864 src/ui/settings.rs:1888
 msgid "About"
 msgstr "关于"
 
-#: src/ui/settings.rs:860 src/ui/settings.rs:1868
+#: src/ui/settings.rs:868 src/ui/settings.rs:1877
 msgid "Keyboard shortcuts"
 msgstr "键盘快捷键"
 
-#: src/ui/settings.rs:861 src/ui/settings.rs:1890
+#: src/ui/settings.rs:869 src/ui/settings.rs:1899
 msgid "Source code"
 msgstr "源代码"
 
-#: src/ui/settings.rs:904
+#: src/ui/settings.rs:912
 msgid "Hides chat content until hovered. Toggle quickly with Ctrl+Shift+H."
 msgstr ""
 
-#: src/ui/settings.rs:909
+#: src/ui/settings.rs:917
 msgid "Chat previews"
 msgstr ""
 
-#: src/ui/settings.rs:914
+#: src/ui/settings.rs:922
 msgid "Media"
 msgstr ""
 
-#: src/ui/settings.rs:915
+#: src/ui/settings.rs:923
 msgid "Names"
 msgstr ""
 
-#: src/ui/settings.rs:916
+#: src/ui/settings.rs:924
 msgid "Avatars"
 msgstr ""
 
-#: src/ui/settings.rs:927 src/ui/settings.rs:954
+#: src/ui/settings.rs:935 src/ui/settings.rs:962
 msgid "App lock"
 msgstr ""
 
-#: src/ui/settings.rs:930
+#: src/ui/settings.rs:938
 msgid ""
 "Asks for a password at start and after a while unused. It keeps people using "
 "this computer out of your chats and encrypts nothing more. A forgotten "
 "password means unlinking."
 msgstr ""
 
-#: src/ui/settings.rs:937
+#: src/ui/settings.rs:945
 msgid "Turn off…"
 msgstr ""
 
-#: src/ui/settings.rs:938
+#: src/ui/settings.rs:946
 #, fuzzy
 msgid "Change password…"
 msgstr "更改…"
 
-#: src/ui/settings.rs:941
+#: src/ui/settings.rs:949
 msgid "Set password…"
 msgstr ""
 
-#: src/ui/settings.rs:955 src/ui/settings.rs:962
+#: src/ui/settings.rs:963 src/ui/settings.rs:970
 #, fuzzy
 msgid "Lock after"
 msgstr "已锁定"
 
-#: src/ui/settings.rs:965
+#: src/ui/settings.rs:973
 msgid ""
 "Time without using Zap Faster, also counted while it is in the tray. "
 "Ctrl+Shift+L locks it at once."
 msgstr ""
 
-#: src/ui/settings.rs:1007
+#: src/ui/settings.rs:1015
 msgid "Set an app lock password"
 msgstr ""
 
-#: src/ui/settings.rs:1008
+#: src/ui/settings.rs:1016
 msgid "Change the app lock password"
 msgstr ""
 
-#: src/ui/settings.rs:1009
+#: src/ui/settings.rs:1017
 msgid "Turn off the app lock"
 msgstr ""
 
-#: src/ui/settings.rs:1019
+#: src/ui/settings.rs:1027
 msgid "Current password"
 msgstr ""
 
-#: src/ui/settings.rs:1026
+#: src/ui/settings.rs:1034
 #, rust-format
 msgid "New password, at least {count} characters"
 msgstr ""
 
-#: src/ui/settings.rs:1031
+#: src/ui/settings.rs:1039
 msgid "Type the new password again"
 msgstr ""
 
-#: src/ui/settings.rs:1055
+#: src/ui/settings.rs:1063
 #, rust-format
 msgid "The password needs at least {count} characters."
 msgstr ""
 
-#: src/ui/settings.rs:1057
+#: src/ui/settings.rs:1065
 msgid "The two new passwords are different."
 msgstr ""
 
-#: src/ui/settings.rs:1058 src/ui/lock.rs:85
+#: src/ui/settings.rs:1066 src/ui/lock.rs:85
 msgid "Wrong password. Try again."
 msgstr ""
 
-#: src/ui/settings.rs:1065
+#: src/ui/settings.rs:1073
 msgid "Turn on"
 msgstr ""
 
-#: src/ui/settings.rs:1066
+#: src/ui/settings.rs:1074
 #, fuzzy
 msgid "Change password"
 msgstr "更换头像"
 
-#: src/ui/settings.rs:1067
+#: src/ui/settings.rs:1075
 msgid "Turn off"
 msgstr ""
 
-#: src/ui/settings.rs:1170
+#: src/ui/settings.rs:1178
 msgid "How to make a theme"
 msgstr "如何制作主题"
 
-#: src/ui/settings.rs:1234 src/ui/settings.rs:1243
+#: src/ui/settings.rs:1243 src/ui/settings.rs:1252
 msgid "Auto"
 msgstr "自动"
 
-#: src/ui/settings.rs:1330
+#: src/ui/settings.rs:1339
 msgid "Add doodles"
 msgstr "添加涂鸦"
 
-#: src/ui/settings.rs:1334
+#: src/ui/settings.rs:1343
 msgid "Show the default doodles over the selected colour."
 msgstr "在所选颜色上显示默认涂鸦。"
 
-#: src/ui/settings.rs:1418
+#: src/ui/settings.rs:1427
 msgid "Choose image…"
 msgstr "选择图片…"
 
-#: src/ui/settings.rs:1419
+#: src/ui/settings.rs:1428
 msgid "Remove image"
 msgstr "移除图片"
 
-#: src/ui/settings.rs:1447
+#: src/ui/settings.rs:1456
 msgctxt "wallpaper colour"
 msgid "Theme"
 msgstr "主题"
 
-#: src/ui/settings.rs:1523
+#: src/ui/settings.rs:1532
 msgid ""
 "Space taken by the pictures, videos, stickers, and GIFs Zap Faster has "
 "downloaded. The size is the one WhatsApp declared. Documents and audio count "
@@ -1301,60 +1335,60 @@ msgstr ""
 "Zap Faster 已下载的图片、视频、贴纸和 GIF 占用的空间。大小以 WhatsApp 声明为"
 "准。文档和音频计入“其他”。"
 
-#: src/ui/settings.rs:1541
+#: src/ui/settings.rs:1550
 #, rust-format
 msgid "{} message"
 msgid_plural "{} messages"
 msgstr[0] "{} 条消息"
 
-#: src/ui/settings.rs:1705
+#: src/ui/settings.rs:1714
 msgid "Linked device"
 msgstr "已关联的设备"
 
-#: src/ui/settings.rs:1716
+#: src/ui/settings.rs:1725
 msgid "Edit your name and About"
 msgstr "编辑你的名字和个人简介"
 
-#: src/ui/settings.rs:1780
+#: src/ui/settings.rs:1789
 msgid "Save"
 msgstr "保存"
 
-#: src/ui/settings.rs:1847
+#: src/ui/settings.rs:1856
 msgid "A native WhatsApp client built with Rust, egui, and whatsapp-rust."
 msgstr "用 Rust、egui 和 whatsapp-rust 构建的原生 WhatsApp 客户端。"
 
-#: src/ui/settings.rs:1858
+#: src/ui/settings.rs:1867
 #, rust-format
 msgid "Update to {version}"
 msgstr "更新到 {version}"
 
-#: src/ui/settings.rs:1960
+#: src/ui/settings.rs:1969
 msgid "Mention sound"
 msgstr "提及提示音"
 
-#: src/ui/settings.rs:1961
+#: src/ui/settings.rs:1970
 msgid "When a group mentions you or replies to you."
 msgstr "当群组提及你或回复你时。"
 
-#: src/ui/settings.rs:1964
+#: src/ui/settings.rs:1973
 msgid "Message sound"
 msgstr "消息提示音"
 
-#: src/ui/settings.rs:1981
+#: src/ui/settings.rs:1990
 msgid "Pidgin alert"
 msgstr "Pidgin 提示音"
 
-#: src/ui/settings.rs:1982
+#: src/ui/settings.rs:1991
 msgid "System default"
 msgstr "系统默认"
 
 #. Translators: no notification sound.
-#: src/ui/settings.rs:1984
+#: src/ui/settings.rs:1993
 msgctxt "sound"
 msgid "None"
 msgstr "无"
 
-#: src/ui/settings.rs:2021
+#: src/ui/settings.rs:2030
 msgid "Choose a file…"
 msgstr "选择文件…"
 
@@ -1422,96 +1456,96 @@ msgstr[0] "剩余 {}"
 msgid "No one yet"
 msgstr "还没有人"
 
-#: src/app.rs:714
+#: src/app.rs:720
 msgid "Could not check the number. Please try again."
 msgstr "无法验证号码。请重试。"
 
-#: src/app.rs:718
+#: src/app.rs:724
 msgid "This number is not on WhatsApp"
 msgstr "此号码未注册 WhatsApp"
 
-#: src/app.rs:721 src/app.rs:16933
+#: src/app.rs:727 src/app.rs:17126
 msgid "Not connected to WhatsApp"
 msgstr "未连接到 WhatsApp"
 
-#: src/app.rs:724 src/app.rs:6389
+#: src/app.rs:730 src/app.rs:6485
 msgid "Enter a valid international phone number"
 msgstr "请输入有效的国际电话号码"
 
-#: src/app.rs:1517
+#: src/app.rs:1523
 msgid "Could not delete the removed account's files"
 msgstr ""
 
-#: src/app.rs:2104
+#: src/app.rs:2110
 #, rust-format
 msgid "A label named “{name}” already exists."
 msgstr "已存在名为“{name}”的标签。"
 
-#: src/app.rs:2180
+#: src/app.rs:2186
 #, rust-format
 msgid "{name} (You)"
 msgstr "{name}（你）"
 
-#: src/app.rs:3186
+#: src/app.rs:3244
 msgid "Could not use this image"
 msgstr "无法使用此图片"
 
-#: src/app.rs:3939
+#: src/app.rs:4011
 msgid "Not sent: Zap Faster is not connected to WhatsApp."
 msgstr "未发送：Zap Faster 未连接到 WhatsApp。"
 
-#: src/app.rs:3943
+#: src/app.rs:4015
 msgid ""
 "Not sent: the message you’re replying to isn’t available on this computer. "
 "Cancel the reply to send without a quote."
 msgstr "未发送：你要回复的消息不在这台电脑上。取消回复即可不带引用发送。"
 
-#: src/app.rs:4491 src/app.rs:16930
+#: src/app.rs:4563 src/app.rs:17123
 msgid "This message can no longer be edited"
 msgstr "此消息已无法编辑"
 
-#: src/app.rs:5548
+#: src/app.rs:5644
 msgid "A selected chat is no longer writable"
 msgstr "无法再向某个所选聊天发送消息"
 
-#: src/app.rs:6083
+#: src/app.rs:6179
 msgid "Added to favorites"
 msgstr "已添加到收藏"
 
-#: src/app.rs:6160
+#: src/app.rs:6256
 msgid "Sending the sticker pack…"
 msgstr "正在发送贴图包…"
 
-#: src/app.rs:6489 src/ui/labels.rs:249
+#: src/app.rs:6585 src/ui/labels.rs:249
 #, rust-format
 msgid "You have {limit} labels, the most Zap Faster keeps."
 msgstr "你已有 {limit} 个标签，这是 Zap Faster 的上限。"
 
-#: src/app.rs:7212
+#: src/app.rs:7308
 msgid "App lock password saved"
 msgstr "应用锁密码已保存"
 
-#: src/app.rs:7220
+#: src/app.rs:7316
 msgid "App lock turned off"
 msgstr "应用锁已关闭"
 
-#: src/app.rs:7343
+#: src/app.rs:7439
 msgid "This video opens in your system player"
 msgstr "此视频将用系统播放器打开"
 
-#: src/app.rs:7976
+#: src/app.rs:8072
 msgid "Copied image"
 msgstr "已复制图片"
 
-#: src/app.rs:7979 src/app.rs:7984
+#: src/app.rs:8075 src/app.rs:8080
 msgid "Failed to copy image"
 msgstr "复制图片失败"
 
-#: src/app.rs:16937
+#: src/app.rs:17130
 msgid "Could not send the edit"
 msgstr "无法发送编辑内容"
 
-#: src/app.rs:16940
+#: src/app.rs:17133
 msgid "The edit was sent but could not be saved locally"
 msgstr "编辑已发送，但无法保存在此计算机上"
 

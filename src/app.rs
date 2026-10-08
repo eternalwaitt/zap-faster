@@ -160,6 +160,12 @@ const VOICE_FETCH_HOLD: Duration = Duration::from_secs(10);
 #[derive(Default)]
 pub struct Conversation {
     pub messages: Vec<Message>,
+    /// Local Whisper transcript text by source message id.
+    pub transcripts: HashMap<String, String>,
+    /// Voice messages currently downloading a model/audio or transcribing.
+    pub transcribing: HashSet<String>,
+    /// Detailed progress for active local transcriptions.
+    pub transcription_progress: HashMap<String, crate::transcribe::Progress>,
     /// Whether the local archive has no earlier messages.
     pub complete: bool,
     pub loading_older: bool,
@@ -2881,7 +2887,21 @@ impl App {
                     self.storage_stats_asked = false;
                 }
             }
-            Event::Incoming { chat, message } => self.maybe_notify(&chat, &message),
+            Event::Incoming { chat, message } => {
+                self.maybe_notify(&chat, &message);
+                if self.settings.auto_transcribe_voice
+                    && !message.from_me
+                    && matches!(
+                        message.content,
+                        Content::Audio {
+                            voice_note: true,
+                            ..
+                        }
+                    )
+                {
+                    self.request_transcription(chat, message.id.clone(), false);
+                }
+            }
             Event::Picked { chat, paths } => {
                 if live && self.open_chat.as_deref() == Some(chat.as_str()) {
                     self.stage_files(paths);
@@ -2946,6 +2966,10 @@ impl App {
                             (state, existing.content.media_at_mut(Some(index)))
                         {
                             media.state = state;
+                        }
+                        if !keep_transcript {
+                            conversation.transcripts.remove(&id);
+                            conversation.transcribing.remove(&id);
                         }
                     }
                     if let (Some(state), Some(media)) = (state, existing.content.media_mut()) {
@@ -3050,6 +3074,9 @@ impl App {
             Event::MessageDeleted { chat, id } => {
                 if let Some(conversation) = self.conversations.get_mut(&chat) {
                     conversation.messages.retain(|message| message.id != id);
+                    conversation.transcripts.remove(&id);
+                    conversation.transcribing.remove(&id);
+                    conversation.transcription_progress.remove(&id);
                 }
                 if live && self.editing.as_deref() == Some(id.as_str()) {
                     self.editing = None;
@@ -3064,6 +3091,37 @@ impl App {
                 message,
                 result,
             } => self.handle_media(&chat, &message, card, result),
+            Event::Transcribed {
+                chat,
+                message,
+                text,
+            } => {
+                let conversation = self.conversations.entry(chat).or_default();
+                conversation.transcribing.remove(&message);
+                conversation.transcription_progress.remove(&message);
+                match text {
+                    Ok(text) => {
+                        conversation.transcripts.insert(message, text);
+                    }
+                    Err(error) if live => self.toast_error(error),
+                    Err(_) => {}
+                }
+            }
+            Event::TranscriptionProgress {
+                chat,
+                message,
+                progress,
+            } => {
+                self.conversations
+                    .entry(chat)
+                    .or_default()
+                    .transcription_progress
+                    .insert(message, progress);
+            }
+            Event::Transcripts { chat, transcripts } => {
+                let conversation = self.conversations.entry(chat).or_default();
+                conversation.transcripts.extend(transcripts);
+            }
             Event::Motion {
                 chat,
                 message,
@@ -3711,6 +3769,20 @@ impl App {
             conversation
                 .messages
                 .retain(|message| message.timestamp > through);
+            let remaining: HashSet<_> = conversation
+                .messages
+                .iter()
+                .map(|message| message.id.clone())
+                .collect();
+            conversation
+                .transcripts
+                .retain(|id, _| remaining.contains(id));
+            conversation
+                .transcribing
+                .retain(|id| remaining.contains(id));
+            conversation
+                .transcription_progress
+                .retain(|id, _| remaining.contains(id));
             conversation.requested = true;
             conversation.complete = true;
             conversation.phone_exhausted = true;
@@ -4782,6 +4854,27 @@ impl App {
         self.settings_dirty = true;
     }
 
+    /// Starts one local voice transcription unless it is already cached or
+    /// running. Automatic requests stay quiet; their opt-in setting already
+    /// explains the model download and background CPU work.
+    fn request_transcription(&mut self, chat: ChatId, message: String, announce: bool) {
+        if self.app_lock.is_locked() || self.chat(&chat).is_some_and(|chat| chat.locked) {
+            return;
+        }
+        let conversation = self.conversations.entry(chat.clone()).or_default();
+        if conversation.transcripts.contains_key(&message)
+            || !conversation.transcribing.insert(message.clone())
+        {
+            return;
+        }
+        if announce {
+            self.toast(
+                "Preparing a local Whisper transcript. The model downloads if needed (1.5 GB).",
+            );
+        }
+        self.backend.send(Command::Transcribe { chat, message });
+    }
+
     fn save_settings(&mut self) {
         self.settings_dirty = false;
         self.last_settings_save = Instant::now();
@@ -5290,6 +5383,9 @@ impl App {
                     chat,
                     message,
                 });
+            }
+            Action::Transcribe { chat, message } => {
+                self.request_transcription(chat, message, true);
             }
             Action::PreviewImage(path) => {
                 if crate::safety::can_preview_image(&path) && path.is_file() {
@@ -13152,6 +13248,103 @@ mod tests {
             waveform: Vec::new(),
         };
         row
+    }
+
+    #[test]
+    fn transcription_results_stay_in_their_originating_account() {
+        let directory = tempfile::tempdir().unwrap();
+        let (mut app, _) = two_accounts(directory.path());
+        let (backend, _, events) = Backend::recording_with_events();
+        app.accounts[1].backend = backend;
+        let chat = "fixture@s.whatsapp.net";
+        app.accounts[0]
+            .conversations
+            .entry(chat.into())
+            .or_default()
+            .transcripts
+            .insert("voice".into(), "First account fixture".into());
+        events
+            .send(Event::Transcribed {
+                chat: chat.into(),
+                message: "voice".into(),
+                text: Ok("Second account fixture".into()),
+            })
+            .unwrap();
+        app.handle_events();
+        assert_eq!(app.active, 0);
+        assert_eq!(
+            app.accounts[0].conversations[chat].transcripts["voice"],
+            "First account fixture"
+        );
+        assert_eq!(
+            app.accounts[1].conversations[chat].transcripts["voice"],
+            "Second account fixture"
+        );
+    }
+
+    #[test]
+    fn locked_chats_do_not_start_local_transcription() {
+        let mut app = app();
+        let (backend, mut commands) = Backend::recording();
+        app.backend = backend;
+        let mut chat = Chat::new("fixture@s.whatsapp.net".into(), "Fixture".into());
+        chat.locked = true;
+        app.chats.push(chat);
+        app.request_transcription("fixture@s.whatsapp.net".into(), "voice".into(), true);
+        assert!(commands.try_recv().is_err());
+        assert!(!app.conversations.contains_key("fixture@s.whatsapp.net"));
+    }
+
+    #[test]
+    fn incoming_voice_messages_follow_the_automatic_transcript_setting() {
+        let mut app = app();
+        let (backend, mut commands, events) = Backend::recording_with_events();
+        app.backend = backend;
+        let chat = "1@s.whatsapp.net";
+        app.chats = vec![Chat::new(chat.into(), "Ada".into())];
+
+        let first = voice(chat, "off", 1, None);
+        events
+            .send(Event::Messages {
+                chat: chat.into(),
+                messages: vec![first.clone()],
+                older: false,
+                complete: false,
+            })
+            .unwrap();
+        events
+            .send(Event::Incoming {
+                chat: chat.into(),
+                message: Box::new(first),
+            })
+            .unwrap();
+        app.handle_events();
+        assert!(commands.try_recv().is_err(), "the default remains opt-in");
+
+        app.settings.auto_transcribe_voice = true;
+        let second = voice(chat, "on", 2, None);
+        events
+            .send(Event::Messages {
+                chat: chat.into(),
+                messages: vec![second.clone()],
+                older: false,
+                complete: false,
+            })
+            .unwrap();
+        events
+            .send(Event::Incoming {
+                chat: chat.into(),
+                message: Box::new(second),
+            })
+            .unwrap();
+        app.handle_events();
+
+        assert!(matches!(
+            commands.try_recv(),
+            Ok(Command::Transcribe { chat: target, message })
+                if target == chat && message == "on"
+        ));
+        assert!(app.conversations[chat].transcribing.contains("on"));
     }
 
     #[test]

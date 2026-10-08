@@ -16,6 +16,9 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
+  # whisper.cpp requires clang on Windows ARM64. clang-cl leaves C++
+  # exceptions off unless they are requested explicitly.
+  CXXFLAGS_aarch64_pc_windows_msvc: /EHsc
 
 jobs:
   audit:
@@ -42,7 +45,7 @@ jobs:
       - name: GUI build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libxkbcommon-dev libwayland-dev libgl1-mesa-dev libasound2-dev cmake perl
+          sudo apt-get install -y libxkbcommon-dev libwayland-dev libgl1-mesa-dev libasound2-dev cmake perl libclang-dev
       # After the toolchain, so the cache key follows the pinned rustc. The
       # key carries no job name, so each job sets its own generation. Saves
       # only on pushes to main; pull requests restore.
@@ -75,7 +78,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libxkbcommon-dev libwayland-dev libgl1-mesa-dev libasound2-dev cmake perl
+          sudo apt-get install -y libxkbcommon-dev libwayland-dev libgl1-mesa-dev libasound2-dev cmake perl libclang-dev
       - uses: jdx/mr-boxington-action@v1
         with:
           cache-generation: test-v1
@@ -108,6 +111,13 @@ jobs:
     name: compile (Windows arm64)
     runs-on: windows-latest
     timeout-minutes: 40
+    env:
+      # whisper.cpp deliberately rejects MSVC's ARM backend. The hosted
+      # Windows image includes LLVM and Ninja, so use clang-cl while retaining
+      # the MSVC ABI expected by Rust's aarch64-pc-windows-msvc target.
+      CMAKE_GENERATOR: Ninja
+      CC_aarch64_pc_windows_msvc: clang-cl
+      CXX_aarch64_pc_windows_msvc: clang-cl
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
