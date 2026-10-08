@@ -30,6 +30,9 @@ is ZapFast's sibling. Both are built on
 New chat can check an international phone number with WhatsApp and open a
 conversation without saving a contact. See [Chats](docs/_guide/using-zapfast.md#chats).
 
+Attachment drafts retain their pictures, files, captions and replies while
+ZapFast is running. Quitting discards them. See [Attachments](docs/_guide/using-zapfast.md#attachments).
+
 ## Install
 
 ```sh

@@ -160,6 +160,13 @@ are grouped. **Download all** uses the normal per-file download limit and
 shows individual failures; **Save all…** copies downloaded files to a folder
 without replacing existing files. Open an item to view it individually.
 
+Staged attachments, captions, selected mentions and reply quotes remain with
+their chat and account when you switch or close conversations. Text drafts
+persist in the encrypted archive; attachment drafts stay in memory until
+ZapFast exits. Clearing or deleting the chat, or unlinking its account,
+discards its drafts. A refused attachment send returns to its originating
+chat without filling another account's composer.
+
 Incoming attachments up to 64 MiB download when they enter view if automatic
 downloads are on, or on click. Visible stickers download automatically even
 when that setting is off. The 64 MiB limit applies to both automatic and manual

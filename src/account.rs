@@ -8,7 +8,7 @@ use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 use std::time::Instant;
 
-use crate::app::Conversation;
+use crate::app::{AttachmentDraft, Conversation};
 use crate::backend::{Backend, LinkStatus, Waker};
 use crate::model::ComposerMention;
 use crate::model::{
@@ -38,6 +38,7 @@ pub struct Account {
     pub scroll_chat_into_view: Option<ChatId>,
     pub drafts: HashMap<ChatId, String>,
     pub(crate) refused_edits: Vec<(ChatId, String, crate::backend::EditDraft)>,
+    pub(crate) attachment_drafts: HashMap<ChatId, AttachmentDraft>,
     pub(crate) draft_mentions: HashMap<ChatId, Vec<ComposerMention>>,
     pub search: String,
     pub search_selected: Option<ChatId>,
@@ -110,6 +111,7 @@ impl Account {
             drafts: HashMap::new(),
             refused_edits: Vec::new(),
             draft_mentions: HashMap::new(),
+            attachment_drafts: HashMap::new(),
             search: String::new(),
             search_selected: None,
             search_hits: Vec::new(),
