@@ -157,7 +157,7 @@
               + pkgs.lib.optionalString isDarwin ''
                 rcodesign sign \
                   --entitlements-xml-file packaging/macos/entitlements.plist \
-                  $out/Applications/Zap Faster.app
+                  "$out/Applications/Zap Faster.app"
               '';
 
             postInstall =
@@ -174,18 +174,18 @@
               # Mirrors packaging/macos/bundle.sh: Zap Faster.app around the built
               # binary, with the version stripped of any prerelease suffix.
               + pkgs.lib.optionalString isDarwin ''
-                app=$out/Applications/Zap Faster.app
-                mkdir -p $app/Contents/MacOS $app/Contents/Resources
-                mv $out/bin/zap-faster $app/Contents/MacOS/zap-faster
-                chmod 755 $app/Contents/MacOS/zap-faster
+                app="$out/Applications/Zap Faster.app"
+                mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
+                mv "$out/bin/zap-faster" "$app/Contents/MacOS/zap-faster"
+                chmod 755 "$app/Contents/MacOS/zap-faster"
                 # The command runs the bundled executable, so macOS applies the
                 # bundle's Info.plist and entitlements, and start at login
                 # records the bundled path.
-                makeWrapper $app/Contents/MacOS/zap-faster $out/bin/zap-faster
+                makeWrapper "$app/Contents/MacOS/zap-faster" "$out/bin/zap-faster"
                 sed "s/__VERSION__/''${version%%-*}/g" packaging/macos/Info.plist \
-                  > $app/Contents/Info.plist
+                  > "$app/Contents/Info.plist"
                 icnsify packaging/macos/icon-1024.png \
-                  --output $app/Contents/Resources/zap-faster.icns
+                  --output "$app/Contents/Resources/zap-faster.icns"
               '';
 
             meta = {
