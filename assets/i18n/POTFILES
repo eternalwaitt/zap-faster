@@ -21,3 +21,4 @@ src/notify.rs
 src/settings.rs
 src/account.rs
 src/ui/accounts.rs
+src/ui/gallery.rs
