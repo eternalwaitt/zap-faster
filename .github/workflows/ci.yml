@@ -78,7 +78,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libxkbcommon-dev libwayland-dev libgl1-mesa-dev libasound2-dev cmake perl libclang-dev
+          sudo apt-get install -y libxkbcommon-dev libwayland-dev libgl1-mesa-dev libasound2-dev cmake perl libclang-dev xvfb xauth libgl1-mesa-dri libegl1
       - uses: jdx/mr-boxington-action@v1
         with:
           cache-generation: test-v1
@@ -100,7 +100,7 @@ jobs:
           screencapture -x "$RUNNER_TEMP/zap-faster-window.png" || true
           wait "$demo_pid"
           test -s "$RUNNER_TEMP/zap-faster-content.png"
-          for page in media-album forward-review voice-transcript; do
+          for page in media-album forward-review voice-transcript starred star-menu pinned background-history original-documents international-sender; do
             target/debug/zap-faster --demo --demo-page "$page" --demo-shot "$RUNNER_TEMP/zap-faster-$page.png" --demo-shot-delay 1200
             test -s "$RUNNER_TEMP/zap-faster-$page.png"
           done
@@ -110,6 +110,35 @@ jobs:
         with:
           name: macos-preview
           path: ${{ runner.temp }}/zap-faster-*.png
+      - name: Build Linux demo
+        if: runner.os == 'Linux'
+        run: mbx build --locked --features demo
+      - name: Linux native window smoke test
+        if: runner.os == 'Linux'
+        timeout-minutes: 10
+        env:
+          LIBGL_ALWAYS_SOFTWARE: "1"
+          GALLIUM_DRIVER: llvmpipe
+          XDG_RUNTIME_DIR: ${{ runner.temp }}/zap-faster-demo-runtime
+        run: |
+          mkdir -p "$XDG_RUNTIME_DIR"
+          chmod 700 "$XDG_RUNTIME_DIR"
+          for page in media-album forward-review voice-transcript starred star-menu pinned background-history original-documents international-sender; do
+            timeout 45s xvfb-run -a -s "-screen 0 1600x1200x24" \
+              env -u WAYLAND_DISPLAY -u WAYLAND_SOCKET \
+              target/debug/zap-faster --demo --demo-page "$page" \
+              --demo-shot "$RUNNER_TEMP/zap-faster-$page.png" --demo-shot-delay 2500 \
+              > "$RUNNER_TEMP/zap-faster-$page.log" 2>&1
+            test -s "$RUNNER_TEMP/zap-faster-$page.png"
+          done
+      - name: Linux preview
+        if: always() && runner.os == 'Linux'
+        uses: actions/upload-artifact@v7
+        with:
+          name: linux-preview
+          path: |
+            ${{ runner.temp }}/zap-faster-*.png
+            ${{ runner.temp }}/zap-faster-*.log
 
   windows-arm64:
     name: compile (Windows arm64)
