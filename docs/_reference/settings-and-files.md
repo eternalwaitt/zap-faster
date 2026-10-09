@@ -117,7 +117,7 @@ name or description, in the interface language or in English.
   download automatically. Explicit downloads allow up to 2 GiB, with progress
   and cancellation. Images above 64 MiB can be saved and opened externally;
   in-app previews and clipboard decoding remain bounded.
-- **Keep chats archived** (development builds): on by default. When off, a new
+- **Keep chats archived**: on by default. When off, a new
   message, received or sent, brings an archived chat back to the list. Applies
   to all accounts here; it does not read or change the phone's own setting.
 - **Pause other media while recording or playing**: pause music and videos in
@@ -182,7 +182,7 @@ hints under the message box** in the Keyboard shortcuts dialog brings it back),
 **Also save to your phone's contacts** in the new-contact dialog, voice
 playback speed, and the chat list and search pane widths.
 
-Development builds also remember the window's size, position, and maximized
+Zap Faster also remembers the window's size, position, and maximized
 state in `settings.json`, including when reopening from the tray or a
 notification. On Wayland the compositor controls placement, so Zap Faster keeps
 the size without choosing the position. These window changes and **Keep chats

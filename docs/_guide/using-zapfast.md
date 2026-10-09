@@ -59,7 +59,7 @@ a chat, or unlinking its account, discards its attachment drafts. A refused
 attachment send returns its files, caption and reply quote to the originating
 account's chat draft, even if another account is on screen.
 
-**Development builds** also show when your message was delivered and read when
+Zap Faster also shows when your message was delivered and read when
 you click its time or ticks, as on WhatsApp.
 
 Double-click beside a message, or on its edge, to reply to it. A double-click
@@ -69,7 +69,7 @@ Deleting a message asks which copies to remove. **Delete for everyone**
 revokes it through WhatsApp. In **0.19.0**, **Delete for me** removes only this
 computer's copy, and individual deletions do not sync to or from your phone.
 
-**Development builds** now sync **Delete for me** with your phone and linked
+Zap Faster syncs **Delete for me** with your phone and linked
 devices; other people keep their copy. This needs a connection, and the local
 copy disappears only after WhatsApp accepts the deletion. Phone deletions sync
 here too, and history replay cannot restore deleted messages. Interrupted
@@ -86,7 +86,7 @@ request; a failed deletion reports an error and preserves the message.
 **Delete chat** and **Clear chat** already sync in 0.19.0, as described under
 [Chats](#chats).
 
-**Development builds** preserve edited replies and the phone's order for
+Zap Faster preserves edited replies and the phone's order for
 messages sent within the same second when loading history. If an earlier
 build missed a message or put nearby messages in the wrong order, right-click
 a message just after the affected area and choose **Reload earlier messages**.
@@ -514,8 +514,8 @@ this computer once it confirms. Groups and channels can be left from the same
 menu, keeping their history here. `Ctrl+E` (Command+E on macOS) archives the
 open chat, or unarchives it from **Archived**, as in WhatsApp.
 
-Archived chats stay archived when new messages arrive. **Development builds**
-add **Keep chats archived** in Settings: turn it off to have a new message,
+Archived chats stay archived when new messages arrive. In Settings, turn off
+**Keep chats archived** to have a new message,
 received or sent, bring the chat back to the list. This setting applies to all
 accounts here. Zap Faster does not read the phone's own setting yet, so set it
 here to match. Messages older than the archiving, duplicate deliveries, and
@@ -529,7 +529,7 @@ WhatsApp lets you edit a group's info, rename it with the pencil beside its
 name and click its photo to change it. Clicking a `chat.whatsapp.com` invite
 link shows the group and joins it without leaving Zap Faster.
 
-**Development builds** also show the group's description above its members.
+Chat info also shows the group's description above its members.
 The text is selectable, preserves line breaks and emoji, and scrolls when long.
 Descriptions stay in each account's encrypted archive across restarts and update
 when WhatsApp announces changes. Groups without a description omit the section.

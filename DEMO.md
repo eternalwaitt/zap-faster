@@ -35,7 +35,7 @@ WhatsApp, or register a tray icon. You can run it alongside your regular app.
 
 ```sh
 cargo build --locked --features demo
-./target/debug/zapfast --demo-tour --demo-size 1280x800
+./target/debug/zap-faster --demo-tour --demo-size 1280x800
 ```
 
 The **Zap Faster Demo** window waits for **Space**. The 41-second tour starts with
@@ -104,8 +104,8 @@ preview any of these in the light theme. Capture the app's own frame without des
 content:
 
 ```sh
-./target/debug/zapfast --demo --demo-page interactive-media --demo-shot interactive.png
-./target/debug/zapfast --demo --demo-page interactive-media,light --demo-shot interactive-light.png
+./target/debug/zap-faster --demo --demo-page interactive-media --demo-shot interactive.png
+./target/debug/zap-faster --demo --demo-page interactive-media,light --demo-shot interactive-light.png
 ```
 
 On Omarchy, run `omarchy screenrecord`, select the demo window, then press Space
@@ -140,7 +140,7 @@ output keeps it off your screens. Then assemble and annotate the frames:
 
 ```sh
 cargo build --release --locked --features demo
-./target/release/zapfast --demo-tour --demo-tour-script whats-new \
+./target/release/zap-faster --demo-tour --demo-tour-script whats-new \
   --demo-size 1280x800 --demo-tour-frames frames --demo-tour-events tour.json
 ffmpeg -framerate 30 -i frames/frame-%05d.png -c:v libx264 -crf 12 -pix_fmt yuv420p raw.mp4
 python3 scripts/render-demo.py raw.mp4 tour.json whats-new.mp4 --scale 1.5
