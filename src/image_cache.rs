@@ -13,6 +13,40 @@ use std::sync::{Arc, Mutex};
 /// so this only bounds what has scrolled away.
 const RESIDENT: usize = 96;
 
+/// Explicit downloads can be much larger than in-process image previews.
+/// Reject them before egui's file loader buffers the whole attachment.
+struct PreviewLimit;
+
+impl egui::load::BytesLoader for PreviewLimit {
+    fn id(&self) -> &str {
+        "zapfast::image_cache::PreviewLimit"
+    }
+
+    fn load(&self, _ctx: &egui::Context, uri: &str) -> egui::load::BytesLoadResult {
+        let Some(path) = uri.strip_prefix("file://") else {
+            return Err(egui::load::LoadError::NotSupported);
+        };
+        #[cfg(windows)]
+        let path = path.strip_prefix('/').unwrap_or(path);
+        if !crate::safety::image_preview_size_allowed(std::path::Path::new(path)) {
+            return Err(egui::load::LoadError::Loading(
+                "This image is too large to preview. Open it in another app.".into(),
+            ));
+        }
+        Err(egui::load::LoadError::NotSupported)
+    }
+
+    fn forget(&self, _uri: &str) {}
+    fn forget_all(&self) {}
+    fn byte_size(&self) -> usize {
+        0
+    }
+}
+
+pub fn install_preview_limit(ctx: &egui::Context) {
+    ctx.add_bytes_loader(Arc::new(PreviewLimit));
+}
+
 struct Entry {
     /// Frame the image was last drawn on.
     frame: u64,
@@ -114,6 +148,30 @@ pub fn sweep(ctx: &egui::Context) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn explicit_large_images_are_rejected_before_the_file_loader_reads_them() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("synthetic.png");
+        let file = std::fs::File::create(&path).unwrap();
+        file.set_len(crate::model::ATTACHMENT_DOWNLOAD_LIMIT + 1)
+            .unwrap();
+        let ctx = context();
+        install_preview_limit(&ctx);
+        assert!(matches!(
+            ctx.try_load_bytes(&crate::util::image_uri(&path)),
+            Err(egui::load::LoadError::Loading(_))
+        ));
+        assert_eq!(
+            ctx.loaders()
+                .bytes
+                .lock()
+                .iter()
+                .map(|loader| loader.byte_size())
+                .sum::<usize>(),
+            0
+        );
+    }
 
     fn context() -> egui::Context {
         let ctx = egui::Context::default();

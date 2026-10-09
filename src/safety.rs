@@ -2,6 +2,11 @@
 
 use std::path::Path;
 
+pub fn image_preview_size_allowed(path: &Path) -> bool {
+    path.metadata()
+        .is_ok_and(|metadata| metadata.len() <= crate::model::ATTACHMENT_DOWNLOAD_LIMIT)
+}
+
 /// Preview metadata may supply a bare host, but never a desktop URI scheme.
 pub fn preview_url(value: &str) -> Option<String> {
     if value.chars().any(char::is_control) || value.contains('\\') {

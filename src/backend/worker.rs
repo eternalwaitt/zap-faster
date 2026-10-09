@@ -5627,6 +5627,12 @@ impl Worker {
                 });
             }
             Command::PrepareClipboardImage(path) => {
+                if !crate::safety::image_preview_size_allowed(&path) {
+                    self.emit(Event::Error(
+                        "This image could not be displayed in Zap Faster.".into(),
+                    ));
+                    return;
+                }
                 let events = self.events.clone();
                 let waker = self.waker.clone();
                 tokio::task::spawn_blocking(move || {

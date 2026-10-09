@@ -292,6 +292,12 @@ impl Seek for StagingWriter {
 }
 impl DownloadWriter for StagingWriter {
     fn truncate(&mut self, len: u64) -> io::Result<()> {
+        self.control.check()?;
+        if len > self.control.limit {
+            return Err(io::Error::other(
+                "This attachment exceeds the download limit",
+            ));
+        }
         self.file.as_mut().expect("open staging file").set_len(len)
     }
 }
@@ -386,8 +392,13 @@ mod tests {
             })
         ));
         assert!(writer.write_all(&[2; 5]).is_err());
+        assert!(writer.truncate(9).is_err());
         assert_eq!(writer.file.as_ref().unwrap().metadata().unwrap().len(), 4);
         writer.control.cancel();
+        assert_eq!(
+            writer.truncate(2).unwrap_err().kind(),
+            io::ErrorKind::Interrupted
+        );
         assert_eq!(
             writer.write(&[3]).unwrap_err().kind(),
             io::ErrorKind::Interrupted

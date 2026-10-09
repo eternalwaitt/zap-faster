@@ -4689,9 +4689,25 @@ fn outgoing_controls(
     message: &Message,
     actions: &mut Vec<Action>,
 ) {
-    if let Some(media) = message.content.media()
-        && let MediaState::Transferring { bytes, total } = media.state
+    let mut slots = vec![(None, message.content.media())];
+    if let Content::Interactive {
+        card: Some(card), ..
+    } = &message.content
     {
+        slots.extend(
+            card.carousel
+                .iter()
+                .enumerate()
+                .map(|(index, card)| (Some(index), card.image.as_ref())),
+        );
+    }
+    for (card, media) in slots {
+        let Some(media) = media else {
+            continue;
+        };
+        let MediaState::Transferring { bytes, total } = media.state else {
+            continue;
+        };
         let label = total.filter(|total| *total > 0).map_or_else(
             || crate::util::bytes(bytes),
             |total| {
@@ -4717,7 +4733,7 @@ fn outgoing_controls(
             actions.push(Action::CancelDownload {
                 chat: message.chat.clone(),
                 message: message.id.clone(),
-                card: None,
+                card,
             });
         }
     }
