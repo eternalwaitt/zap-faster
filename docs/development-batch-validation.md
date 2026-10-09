@@ -13,10 +13,14 @@ is committed as `d9f0bb54481a245d6bb38e1363553ca1d728ae3c` on local `main`.
 This separate validation record tracks the completed checks and the concrete
 Linux test-linking environment blocker.
 
-The source version remains **0.21.0**. The user selected **0.30.0** as an acceptable
-future release name. This implementation task does not bump the version, tag or
-publish a release, install a build, or replace the running client. Changes belong
-in focused, linear commits on `main`.
+The initial implementation kept source version **0.21.0** and did not tag,
+publish, install or replace the running client. The user subsequently authorized
+preparing **0.30.0** and a local replacement of the existing ZapFast installation.
+The version and release notes are now prepared on `main`; GitHub release
+publication remains a separate step. This document preserves the initial batch's
+verification record, including the local Docker limitation. Follow-up platform
+checks and synthetic captures are available in the fork's
+[main CI runs](https://github.com/eternalwaitt/zap-faster/actions/workflows/ci.yml?query=branch%3Amain).
 
 ## Implementation checklist
 
