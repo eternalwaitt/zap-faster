@@ -3180,12 +3180,14 @@ pub fn apply_flags(app: &mut App, page: Option<&str>) {
                 }
             }
             "international-sender" => {
-                apply_flags(app, Some("group"));
+                app.open_chat = Some(SAMPLES[1].id.into());
+                app.scroll_to_bottom = false;
+                app.scroll_anchor = Some("group-photo".into());
                 if let Some(chat) = &app.open_chat.clone()
                     && let Some(conversation) = app.conversations.get_mut(chat)
                 {
                     for message in &mut conversation.messages {
-                        if !message.from_me {
+                        if message.id == "group-photo" {
                             message.sender = "442079460018@s.whatsapp.net".into();
                             message.sender_name = None;
                         }
@@ -3557,6 +3559,25 @@ mod tests {
             // Headless tests must apply font-atlas updates themselves.
             output.textures_delta.clear();
         }
+    }
+
+    #[test]
+    fn international_sender_demo_shows_a_formatted_number_in_the_group() {
+        fn contains_number(shape: &egui::Shape) -> bool {
+            match shape {
+                egui::Shape::Text(text) => text.galley.text().contains("+44 20 7946 0018"),
+                egui::Shape::Vec(shapes) => shapes.iter().any(contains_number),
+                _ => false,
+            }
+        }
+        let mut app = app();
+        apply_flags(&mut app, Some("international-sender"));
+        assert_eq!(app.open_chat.as_deref(), Some(SAMPLES[1].id));
+        let ctx = egui::Context::default();
+        app.attach(&ctx);
+        render(&mut app, &ctx);
+        let shapes = frame_sized(&mut app, &ctx, 780.0, Vec::new());
+        assert!(shapes.iter().any(|shape| contains_number(&shape.shape)));
     }
 
     /// Two contacts typing in the open group keep the window drawing every
