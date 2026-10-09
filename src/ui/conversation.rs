@@ -4542,9 +4542,9 @@ pub fn footer_id(chat: &str, message: &str) -> egui::Id {
 fn has_message_info(message: &Message) -> bool {
     message.from_me
         && !matches!(message.content, Content::Revoked)
-        && !matches!(
+        && matches!(
             message.status,
-            Delivery::None | Delivery::Pending | Delivery::Failed
+            Delivery::Sent | Delivery::Delivered | Delivery::Read | Delivery::Played
         )
 }
 
@@ -5258,7 +5258,7 @@ fn context_menu(ui: &mut egui::Ui, view: &View<'_>, message: &Message, actions: 
         &palette,
         Some(Icon::Refresh),
         &crate::i18n::gettext(view.locale, "Reload earlier messages"),
-        view.connected && !matches!(message.status, Delivery::Pending | Delivery::Failed),
+        view.connected && !message.status.is_local() && message.status != Delivery::Failed,
     ) {
         actions.push(Action::ReloadHistory {
             chat: chat.clone(),
@@ -8930,6 +8930,53 @@ fn chat_of(chat: &ChatId) -> &str {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn message_info_requires_a_confirmed_outgoing_send() {
+        let mut message = Message {
+            id: "synthetic-info".into(),
+            chat: "synthetic-chat".into(),
+            sender: "me".into(),
+            sender_name: None,
+            from_me: true,
+            timestamp: 0,
+            history_order: None,
+            content: Content::text("Synthetic message"),
+            status: Delivery::Sent,
+            delivered_at: None,
+            read_at: None,
+            quoted: None,
+            reactions: Vec::new(),
+            edited: false,
+            mentions: Vec::new(),
+            forwarded: false,
+            thumbnail: None,
+        };
+        for status in [
+            Delivery::None,
+            Delivery::Queued,
+            Delivery::Unconfirmed,
+            Delivery::Pending,
+            Delivery::Failed,
+        ] {
+            message.status = status;
+            assert!(!has_message_info(&message), "{status:?}");
+        }
+        for status in [
+            Delivery::Sent,
+            Delivery::Delivered,
+            Delivery::Read,
+            Delivery::Played,
+        ] {
+            message.status = status;
+            assert!(has_message_info(&message), "{status:?}");
+        }
+        message.from_me = false;
+        assert!(!has_message_info(&message));
+        message.from_me = true;
+        message.content = Content::Revoked;
+        assert!(!has_message_info(&message));
+    }
 
     #[test]
     fn batch_revoke_requires_every_selected_message_to_be_eligible() {
