@@ -1,16 +1,50 @@
-# Contributing to Zap Faster
+# Contributing to ZapFaster
 
-Zap Faster is a small native WhatsApp client. Changes should improve the desktop
-app without adding a browser engine, telemetry, a hosted backend, or another
-protocol implementation.
+ZapFaster is built by a daily WhatsApp power user for people who want more from
+their desktop client. We want useful workflows inspired by past WhatsApp plugins,
+practical improvements for busy conversations, and faster delivery of fixes and
+features. Help us turn real daily frustrations into reliable native features.
 
-PRs are welcome here even when a corresponding upstream PR is still open. Link the original PR or issue and credit its author. See [the intake ledger](docs/upstream-intake.md) for current decisions.
+## Ways to help
+
+- **Report bugs:** describe what you expected, what happened, your app version,
+  operating system, and steps someone else can follow.
+- **Suggest features:** describe the workflow you want to improve. If an old
+  plugin did it well, explain how it worked and why it mattered to you.
+- **Write code:** fix a bug or build a focused feature. Discuss large changes
+  first so we can agree on behavior and scope before you spend time on them.
+- **Test changes:** reproduce bugs, try fixes, and report which platform and
+  version you tested. Cross-platform testing is especially useful.
+- **Improve translations and docs:** make the app and its guides easier to use.
+
+Search [our issues](https://github.com/eternalwaitt/zap-faster/issues) and
+[pull requests](https://github.com/eternalwaitt/zap-faster/pulls) before starting.
+You do not need to follow ZapFast's PR backlog to contribute here. When adapting
+someone else's work, link the original change, credit its authors and preserve
+its license notices. A corresponding upstream PR can still be open.
+
+## Get started
+
+Clone the repository and use the pinned toolchain in `rust-toolchain.toml`:
+
+```sh
+git clone https://github.com/eternalwaitt/zap-faster.git
+cd zap-faster
+cargo run --locked --release
+```
+
+See [PACKAGING.md](PACKAGING.md) for platform dependencies and build instructions,
+[AGENTS.md](AGENTS.md) for architecture and coding conventions, and
+[DEMO.md](DEMO.md) for synthetic test conversations and screenshots.
+Outside contributors should create a branch in their own fork and open a pull
+request against this repository's `main`.
 
 ## Before opening an issue
 
 Search open and closed issues first. For a bug, use the bug form and include
-the requested log and exact steps to reproduce it. Reports without enough
-information to investigate may be closed.
+the requested diagnostics and exact steps to reproduce it. Inspect logs locally
+and redact private data before attaching them. If a report is missing details,
+we may ask for a reproduction or close it with an explanation.
 
 For a feature, explain the user problem. Discuss large changes in an issue
 before writing code. Existing code does not guarantee that a feature fits the
@@ -21,8 +55,8 @@ Product boundaries and upstream responsibilities:
 - The protocol comes from [whatsapp-rust](https://github.com/oxidezap/whatsapp-rust).
   A capability it does not support is fixed upstream first, not reimplemented
   here.
-- Zap Faster will not embed a browser engine, add telemetry, or introduce a
-  Zap Faster-operated service. Features that send message content to a third
+- ZapFaster will not embed a browser engine, add telemetry, or introduce a
+  ZapFaster-operated service. Features that send message content to a third
   party are out of scope.
 
 The guide's [current limitations](docs/_guide/what-is-zapfast.md#what-it-does-not-do-yet)
@@ -31,9 +65,10 @@ codec restrictions, and download limits do not by themselves make a report out
 of scope. Check the relevant code and reported version when a guide and a
 report disagree; leave uncertain product decisions to the maintainer.
 
-Never post screenshots of real conversations, contact names, phone numbers,
-keys, or QR codes. Crop a capture to the part that shows the problem and
-redact everything personal in it.
+Use synthetic conversations for screenshots and recordings. Never upload a real
+archive, session database, message contents, contact names, phone numbers,
+keys, or linking QR payloads. Do not give personal chats or credentials to an AI
+tool. Tests and reproductions should use synthetic fixtures and mock credentials.
 
 Duplicate, out-of-scope, or incomplete issues may be closed with a short
 explanation. A bug can be closed once its fix is on `main`, with the commit and
@@ -61,15 +96,32 @@ release status stated. Reopen the issue if it persists after updating.
 
 Keep each pull request to one change. A pull request that bundles unrelated
 fixes or features will be closed with a request to split it. Explain why the
-change belongs in Zap Faster, what changed, and how you tested it. Avoid unrelated
+change belongs in ZapFaster, what changed, and how you tested it. Avoid unrelated
 formatting, refactors, generated prose, and large mechanical rewrites.
 
 `main` has a linear history. Outside pull requests are squash-merged into one
 focused commit with contributor credit; merge commits are not accepted. A
 maintainer may push fixes to your branch before merging it.
 
-The same rules apply to hand-written and AI-assisted changes. The author must
-understand every line and answer review comments with specific reasoning.
+### AI-assisted contributions and human sign-off
+
+AI coding tools are welcome for implementation, tests, investigation and docs.
+The quality bar is the same for hand-written and AI-assisted changes:
+
+- A developer must inspect the complete diff, understand the submitted code,
+  and take responsibility for its behavior and dependencies.
+- State in the PR description whether AI tools helped and what they helped with.
+- Verify the behavior with appropriate tests. Explain what you tested and any
+  platform or live-device behavior you could not verify.
+- Complete the human review and sign-off checkbox in the PR template. If the
+  submitter cannot review the code, name the developer who reviewed it and have
+  them confirm their sign-off in the PR.
+- Answer review comments with reasoning grounded in the code. An AI-generated
+  explanation or an automated approval does not replace developer review.
+
+A maintainer reviews the change before merging, and required CI checks must
+pass. We aim to move quickly through focused, reviewable changes; there is no
+guaranteed merge date.
 
 Code changes should include tests for behaviour that can regress. User-visible
 behaviour, settings, files, or network access must be documented in the same
@@ -105,7 +157,7 @@ call so extraction can find it. Normal Cargo builds compile the catalogs without
 gettext tools.
 
 Linux needs the development packages listed in
-[Getting started](https://zapfast.rocks/getting-started/); `nix develop`
+[the build and packaging guide](PACKAGING.md); `nix develop`
 provides the complete development environment. When changing `Cargo.lock` or
 `flake.nix`, also verify `nix build` on a Nix host or wait for the Nix CI job.
 Passing CI is required, but does not replace review for correctness, product
@@ -115,7 +167,3 @@ fit, maintainability, or security.
 
 By contributing, you agree that your contribution is licensed under the
 project's MIT License.
-
-## Refreshing upstream intake
-
-Run `python .github/scripts/upstream-intake.py --output .cache/upstream-intake.json` with an authenticated GitHub CLI. It saves public PR and issue metadata, highlights unreviewed PRs or changed source heads, and never merges, comments, or changes either repository. Update the ledger after reviewing each change.
