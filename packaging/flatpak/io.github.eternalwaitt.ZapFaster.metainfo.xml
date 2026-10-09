@@ -37,6 +37,9 @@
     <control>keyboard</control>
   </supports>
   <releases>
+    <release version="0.30.0" date="2026-10-09">
+      <url>https://github.com/eternalwaitt/zap-faster/releases/tag/v0.30.0</url>
+    </release>
     <release version="0.21.0" date="2026-10-09">
       <url>https://github.com/eternalwaitt/zap-faster/releases/tag/v0.21.0</url>
     </release>
