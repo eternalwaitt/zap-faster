@@ -2,9 +2,9 @@
 title: Download Zap Faster
 ---
 
-Download **[Zap Faster v0.21.0](https://github.com/eternalwaitt/zap-faster/releases/tag/v0.21.0)** for Windows, Linux and macOS.
+Download **[Zap Faster v0.30.0](https://github.com/eternalwaitt/zap-faster/releases/tag/v0.30.0)** for Windows, Linux and macOS.
 
-[Windows](https://github.com/eternalwaitt/zap-faster/releases/download/v0.21.0/zap-faster-v0.21.0-x86_64-pc-windows-msvc-setup.exe) · [Windows ARM](https://github.com/eternalwaitt/zap-faster/releases/download/v0.21.0/zap-faster-v0.21.0-aarch64-pc-windows-msvc-setup.exe) · [Mac](https://github.com/eternalwaitt/zap-faster/releases/download/v0.21.0/zap-faster-v0.21.0-macos-universal.dmg) · [Linux](https://github.com/eternalwaitt/zap-faster/releases/download/v0.21.0/zap-faster-v0.21.0-x86_64-unknown-linux-gnu.tar.gz) · [Linux ARM](https://github.com/eternalwaitt/zap-faster/releases/download/v0.21.0/zap-faster-v0.21.0-aarch64-unknown-linux-gnu.tar.gz) · [Flatpak](https://github.com/eternalwaitt/zap-faster/releases/download/v0.21.0/zap-faster-v0.21.0-x86_64.flatpak)
+[Windows](https://github.com/eternalwaitt/zap-faster/releases/download/v0.30.0/zap-faster-v0.30.0-x86_64-pc-windows-msvc-setup.exe) · [Windows ARM](https://github.com/eternalwaitt/zap-faster/releases/download/v0.30.0/zap-faster-v0.30.0-aarch64-pc-windows-msvc-setup.exe) · [Mac](https://github.com/eternalwaitt/zap-faster/releases/download/v0.30.0/zap-faster-v0.30.0-macos-universal.dmg) · [Linux](https://github.com/eternalwaitt/zap-faster/releases/download/v0.30.0/zap-faster-v0.30.0-x86_64-unknown-linux-gnu.tar.gz) · [Linux ARM](https://github.com/eternalwaitt/zap-faster/releases/download/v0.30.0/zap-faster-v0.30.0-aarch64-unknown-linux-gnu.tar.gz) · [Flatpak](https://github.com/eternalwaitt/zap-faster/releases/download/v0.30.0/zap-faster-v0.30.0-x86_64.flatpak)
 
 The release also includes DEB, RPM and AppImage packages for both Linux architectures. Portable Windows archives, checksums, the signed update manifest and package recipes are on the same release page.
 
