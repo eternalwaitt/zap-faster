@@ -13,13 +13,61 @@ use crate::model::ChatId;
 pub(super) struct ReadSync {
     /// Chat, position, and whether the write marks the chat read.
     in_flight: Option<(ChatId, i64, bool)>,
+    star_in_flight: Option<u64>,
+    archive_in_flight: Option<(String, i64)>,
     retry_at: Option<Instant>,
     failures: u32,
 }
 
 impl ReadSync {
     pub fn ready(&self, now: Instant) -> bool {
-        self.in_flight.is_none() && self.retry_at.is_none_or(|retry| now >= retry)
+        self.in_flight.is_none()
+            && self.star_in_flight.is_none()
+            && self.archive_in_flight.is_none()
+            && self.retry_at.is_none_or(|retry| now >= retry)
+    }
+
+    pub fn start_archive(&mut self, chat: &str, at: i64, now: Instant) -> bool {
+        if !self.ready(now) {
+            return false;
+        }
+        self.archive_in_flight = Some((chat.to_owned(), at));
+        true
+    }
+    pub fn archive_matches(&self, chat: &str, at: i64) -> bool {
+        self.archive_in_flight
+            .as_ref()
+            .is_some_and(|(owner, requested)| owner == chat && *requested == at)
+    }
+    pub fn finish_archive(&mut self, chat: &str, at: i64, success: bool, now: Instant) -> bool {
+        if self
+            .archive_in_flight
+            .as_ref()
+            .is_none_or(|(c, t)| c != chat || *t != at)
+        {
+            return false;
+        }
+        self.archive_in_flight = None;
+        self.backoff(success, now);
+        true
+    }
+
+    /// Stars share regular_low with read-state writes.
+    pub fn start_star(&mut self, token: u64, now: Instant) -> bool {
+        if !self.ready(now) {
+            return false;
+        }
+        self.star_in_flight = Some(token);
+        true
+    }
+
+    pub fn finish_star(&mut self, token: u64, success: bool, now: Instant) -> bool {
+        if self.star_in_flight != Some(token) {
+            return false;
+        }
+        self.star_in_flight = None;
+        self.backoff(success, now);
+        true
     }
 
     pub fn start(&mut self, chat: &str, through: i64, now: Instant) -> bool {
@@ -63,6 +111,11 @@ impl ReadSync {
             return false;
         }
         self.in_flight = None;
+        self.backoff(success, now);
+        true
+    }
+
+    fn backoff(&mut self, success: bool, now: Instant) {
         if success {
             self.failures = 0;
             self.retry_at = None;
@@ -72,13 +125,49 @@ impl ReadSync {
             self.retry_at = Some(now + Duration::from_secs(seconds));
             log::warn!("read-state sync paused; retrying in {seconds} seconds");
         }
-        true
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn star_and_read_writes_share_backoff_and_stale_star_callbacks_do_not_release_it() {
+        let mut sync = ReadSync::default();
+        let now = Instant::now();
+        assert!(sync.start_star(1, now));
+        assert!(!sync.start("chat", 10, now));
+        assert!(!sync.finish_star(2, true, now));
+        assert!(!sync.ready(now));
+        assert!(sync.finish_star(1, false, now));
+        assert!(!sync.start("chat", 10, now));
+        let later = now + Duration::from_secs(30);
+        assert!(sync.start("chat", 10, later));
+        assert!(!sync.start_star(2, later));
+        assert!(sync.finish("chat", 10, true, later));
+        assert!(sync.start_star(2, later));
+        assert!(sync.finish_star(2, true, later));
+    }
+
+    #[test]
+    fn archive_writes_serialize_with_reads_and_stars_and_back_off_the_collection() {
+        let now = Instant::now();
+        let mut sync = ReadSync::default();
+        assert!(sync.start_archive("chat", 100, now));
+        assert!(!sync.start("other", 200, now));
+        assert!(!sync.start_star(1, now));
+        assert!(!sync.finish_archive("chat", 99, true, now));
+        assert!(sync.archive_matches("chat", 100));
+        assert!(sync.finish_archive("chat", 100, false, now));
+        assert!(!sync.ready(now + Duration::from_secs(29)));
+        assert!(sync.start_star(2, now + Duration::from_secs(30)));
+        assert!(!sync.start_archive("chat", 100, now + Duration::from_secs(60)));
+        assert!(sync.finish_star(2, true, now + Duration::from_secs(30)));
+        assert!(sync.start_archive("chat", 101, now + Duration::from_secs(30)));
+        assert!(sync.finish_archive("chat", 101, true, now + Duration::from_secs(30)));
+        assert!(sync.ready(now + Duration::from_secs(30)));
+    }
 
     #[test]
     fn one_failed_collection_holds_back_every_chat_with_capped_backoff() {

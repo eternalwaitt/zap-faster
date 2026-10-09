@@ -805,6 +805,7 @@ fn record(
         heard.extend(microphone.by_ref().take(chunk));
         let taken = &heard[before..];
         if taken.is_empty() {
+            log::warn!("microphone: input stream ended before the next sample batch");
             break;
         }
         let loudness = (taken.iter().map(|s| s * s).sum::<f32>() / taken.len() as f32).sqrt();
@@ -814,7 +815,8 @@ fn record(
             .push(loudness);
         wake();
         if taken.len() < chunk {
-            // The device disappeared before recording stopped.
+            // rodio waits for samples; a short batch means the stream ended.
+            log::warn!("microphone: input stream ended during a sample batch");
             break;
         }
     }

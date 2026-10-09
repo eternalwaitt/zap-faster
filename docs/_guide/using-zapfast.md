@@ -21,6 +21,11 @@ check when it was sent, delivered, and read. The reaction row has a **+** that
 opens the full emoji picker. Hover over a reaction to see who added it.
 Editing uses the composer. Press Escape to cancel.
 
+The message menu also stars messages for the cross-chat list and pins messages
+to the chat header for 24 hours, 7 days, or 30 days. See the
+[starred and pinned message guide]({{ site.baseurl }}/starred-pinned-messages/) for sync behavior
+and recovery limits.
+
 Forwarding opens a recipient picker. Select one or more writable chats, then
 review the selected recipients before confirming. **Back** returns to the
 picker without losing the selection. If a destination becomes locked or
@@ -624,6 +629,21 @@ they announced when clicked. On Linux, a notification that arrives while the
 window is open behind others also highlights Zap Faster in the taskbar until you
 switch to it. Muted chats do not send notifications, and
 archived chats stay quiet while they remain archived. You can change both settings.
+On macOS, the Dock icon also shows the unread count and clears it while the app
+is locked. In **Settings > Notifications**, **Show notification sender** controls
+chat names, pictures and chat-specific sounds. Turning it off also hides message
+content. **Show notification content** can hide previews while retaining the chat
+name. These choices apply separately to each account; locks always mask previews.
+
+macOS plays notification sounds through Notification Center, so the system's
+Focus and Do Not Disturb settings control them. Custom files must be at most
+16 MiB, shorter than 30 seconds, and decodable as mono or stereo audio. Unsupported
+files use the system notification sound. The prepared WAV copy stays locally in
+`~/Library/Sounds`. Banners still require notification permission and enabled
+banner settings for the installed Zap Faster application.
+
+Linux hidden startup waits up to 15 seconds for a tray watcher. If none appears,
+Zap Faster opens its window so you can still reach it.
 To hear less from busy chats, set **Limit repeat notifications** in
 **Settings > Notifications** to direct messages, groups, or both: a chat then
 sends one notification, stays quiet for 10 minutes, and notifies again once you
@@ -644,7 +664,13 @@ and viewer adapt [pulgueta's PR #264](https://github.com/crmne/zapfast/pull/264)
 and [LisandroNahuelH's PR #189](https://github.com/crmne/zapfast/pull/189).
 These contributors retain credit for their original work; the fork's adaptation
 preserves the existing multi-account and privacy architecture.
+Translated submenu sizing also adapts [vncsalencar's PR #435](https://github.com/crmne/zapfast/pull/435),
+with a viewport cap for narrow windows.
 
 Offline previews are available as `gallery`, `gallery-docs`, `gallery-links`,
 `gallery-pending`, `gallery-failed`, `viewer-missing`, `viewer-progress`,
 `viewer-video` and `transfer-progress`, through `--demo --demo-page`.
+
+### Original documents
+
+Choose **Document** on a staged attachment tile to send original image file bytes or lossless PNG clipboard pixels. Original file names and existing file metadata are preserved; clipboard pixels have neither an original filename nor EXIF. See [Original documents]({{ site.baseurl }}/original-documents/) for refusal recovery and acceptance checks.

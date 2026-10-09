@@ -245,6 +245,8 @@ pub enum Command {
     WatchReceipts(Option<(ChatId, String)>),
     /// Result of a private read-state update to the other linked devices.
     ReadSyncFinished {
+        /// Linking epoch that started this asynchronous request.
+        epoch: u64,
         chat: ChatId,
         through: i64,
         success: bool,
@@ -252,6 +254,8 @@ pub enum Command {
     /// Result of an unread mark sent to the other linked devices, keyed by
     /// when the mark was made.
     UnreadSyncFinished {
+        /// Linking epoch that started this asynchronous request.
+        epoch: u64,
         chat: ChatId,
         marked_at: i64,
         success: bool,
@@ -261,6 +265,8 @@ pub enum Command {
         chat: ChatId,
         before: Option<PageKey>,
     },
+    /// Asks for one chat's active pins, for the line under its header.
+    LoadPins(ChatId),
     /// Requests messages before the archive's earliest message. `explicit`
     /// marks a request the reader made by scrolling to the top: only those
     /// report a phone that did not answer, since automatic requests (short
@@ -319,6 +325,28 @@ pub enum Command {
         from: Option<i64>,
         until: Option<i64>,
     },
+    /// Stars or unstars one archived message.
+    SetStar {
+        chat: ChatId,
+        message: String,
+        starred: bool,
+    },
+    /// Asks for the starred messages.
+    LoadStarred {
+        offset: usize,
+    },
+    /// Result of a star or unstar request.
+    Starred {
+        /// Linking epoch that started this asynchronous request.
+        epoch: u64,
+        chat: ChatId,
+        message: String,
+        starred: bool,
+        /// Which attempt this answer belongs to. A later click or a phone
+        /// update wins, and this answer is ignored.
+        generation: u64,
+        result: Result<(), String>,
+    },
     /// Counts and sizes of the downloaded attachments, for Settings. Counting
     /// the messages is a scan of the whole table, so it is asked for once per
     /// opening and left out of the refresh that follows a download.
@@ -334,9 +362,22 @@ pub enum Command {
         chat: ChatId,
         name: String,
     },
+    /// Account-local opt-in recovery; paused while the app is locked.
+    BackgroundHistory {
+        enabled: bool,
+        paused: bool,
+        focused: Option<ChatId>,
+    },
+    /// PDO request identity, registered after the library's send completes.
+    HistoryRequested {
+        chat: ChatId,
+        requested: std::time::Instant,
+        session: String,
+    },
     /// Internal result for a failed phone-history request.
     OlderFailed {
         chat: ChatId,
+        requested: std::time::Instant,
         error: String,
     },
     /// Internal group-metadata failure.
@@ -387,6 +428,14 @@ pub enum Command {
         caption: Option<String>,
         mentions: Vec<String>,
         /// The message the first file replies to.
+        quoting: Option<crate::model::ReplyTarget>,
+    },
+    /// Sends original file bytes, or clipboard pixels encoded losslessly as PNG.
+    SendDocument {
+        chat: ChatId,
+        source: crate::model::DocumentSource,
+        caption: Option<String>,
+        mentions: Vec<String>,
         quoting: Option<crate::model::ReplyTarget>,
     },
     /// Sends a clipboard image as straight-alpha RGBA.
@@ -688,6 +737,12 @@ pub enum Command {
         emoji: String,
     },
     SetArchived(ChatId, bool),
+    ArchiveChangeFinished {
+        chat: ChatId,
+        at: i64,
+        generation: u64,
+        accepted: bool,
+    },
     /// Leaves a group or channel. `archive` also hides the chat in Archived.
     LeaveGroup {
         chat: ChatId,
@@ -711,6 +766,25 @@ pub enum Command {
         through: i64,
     },
     SetPinned(ChatId, bool),
+    /// Pins or unpins one message for everyone in the chat.
+    SetMessagePinned {
+        chat: ChatId,
+        message: String,
+        duration: crate::model::MessagePinDuration,
+        pinned: bool,
+    },
+    /// Result of a pin or unpin request.
+    MessagePinned {
+        chat: ChatId,
+        message: String,
+        pinned: bool,
+        /// When the click was made. An older answer cannot overwrite a newer one.
+        at: i64,
+        /// Which attempt this answer belongs to.
+        generation: u64,
+        expires_at: i64,
+        result: Result<(), String>,
+    },
     /// Marks a chat as a favorite, or removes the mark, here and on the phone.
     SetFavorite(ChatId, bool),
     /// The phone answered a favorites list sent at `at` holding the queued
@@ -997,6 +1071,23 @@ pub enum Event {
     Labels(Vec<crate::model::Label>),
     /// Unsent text stored for each chat, sent once at startup.
     Drafts(Vec<(ChatId, String)>),
+    /// The starred messages of one chat, for the mark in the conversation.
+    Stars {
+        chat: ChatId,
+        ids: Vec<String>,
+    },
+    /// A star the server accepted, or refused, for one message.
+    StarChanged {
+        chat: ChatId,
+        message: String,
+        starred: bool,
+    },
+    /// The starred messages, newest star first.
+    StarredList {
+        offset: usize,
+        list: Vec<crate::archive::Starred>,
+        more: bool,
+    },
     /// Messages in one chat matching a search, newest first, echoing the
     /// query and range asked for so a stale answer can be told apart.
     ChatHits {
@@ -1020,6 +1111,18 @@ pub enum Event {
         token: u64,
     },
     ChatUpdated(Box<Chat>),
+    /// Active pins of one chat, for the line under its header.
+    Pins {
+        chat: ChatId,
+        items: Vec<crate::archive::Pinned>,
+        notices: Vec<crate::archive::Pinned>,
+    },
+    /// A pin the server accepted, or refused, for one message.
+    PinChanged {
+        chat: ChatId,
+        message: String,
+        pinned: bool,
+    },
     /// Chat messages in ascending order. `older` prepends them; `complete`
     /// means the archive has no earlier rows.
     Messages {
@@ -1230,6 +1333,8 @@ pub enum Event {
         chat: ChatId,
         quoting: Option<crate::model::ReplyTarget>,
         unsent: Unsent,
+        /// Original wire mention ids, kept beside recovered attachment captions.
+        mentions: Vec<String>,
         reason: Refusal,
     },
     /// The account folders were deleted after RemoveAccount.
@@ -1293,6 +1398,10 @@ pub enum Unsent {
         width: u32,
         height: u32,
         rgba: Vec<u8>,
+        caption: Option<String>,
+    },
+    Document {
+        source: crate::model::DocumentSource,
         caption: Option<String>,
     },
     Sticker,

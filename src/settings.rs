@@ -843,6 +843,8 @@ impl Settings {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct AccountSettings {
+    /// Recover a bounded amount of phone history without opening each chat.
+    pub background_history: bool,
     pub send_read_receipts: bool,
     pub send_typing: bool,
     #[serde(alias = "auto_download_images")]
@@ -851,6 +853,8 @@ pub struct AccountSettings {
     pub notifications: bool,
     /// Which chats notify once, then stay quiet for ten minutes.
     pub limit_notifications: NotificationLimit,
+    pub notification_sender: bool,
+    pub notification_content: bool,
     pub save_contacts_to_phone: bool,
     /// This account's copy of the chosen chat wallpaper image.
     pub wallpaper_image: Option<std::path::PathBuf>,
@@ -859,12 +863,15 @@ pub struct AccountSettings {
 impl Default for AccountSettings {
     fn default() -> Self {
         Self {
+            background_history: false,
             send_read_receipts: true,
             send_typing: true,
             auto_download: true,
             last_chat: None,
             notifications: true,
             limit_notifications: NotificationLimit::Off,
+            notification_sender: true,
+            notification_content: true,
             save_contacts_to_phone: true,
             wallpaper_image: None,
         }
@@ -874,12 +881,15 @@ impl Default for AccountSettings {
 impl AccountSettings {
     pub fn from_legacy(settings: &Settings) -> Self {
         Self {
+            background_history: false,
             send_read_receipts: settings.send_read_receipts,
             send_typing: settings.send_typing,
             auto_download: settings.auto_download,
             last_chat: settings.last_chat.clone(),
             notifications: settings.notifications,
             limit_notifications: NotificationLimit::Off,
+            notification_sender: true,
+            notification_content: true,
             save_contacts_to_phone: settings.save_contacts_to_phone,
             wallpaper_image: settings.wallpaper_image.clone(),
         }
@@ -1406,6 +1416,38 @@ mod giphy_tests {
         let again: AccountSettings =
             serde_json::from_str(&serde_json::to_string(&saved).unwrap()).unwrap();
         assert_eq!(again, saved);
+    }
+
+    #[test]
+    fn background_history_is_opt_in_and_survives_account_settings_restart() {
+        let legacy: AccountSettings = serde_json::from_str(r#"{"notifications":true}"#).unwrap();
+        assert!(!legacy.background_history);
+        let enabled = AccountSettings {
+            background_history: true,
+            ..Default::default()
+        };
+        let restored: AccountSettings =
+            serde_json::from_str(&serde_json::to_string(&enabled).unwrap()).unwrap();
+        assert!(restored.background_history);
+        assert!(!AccountSettings::from_legacy(&Settings::default()).background_history);
+        assert!(
+            !AccountSettings::default().background_history,
+            "another account stays opted out"
+        );
+    }
+
+    #[test]
+    fn notification_preview_controls_default_on_and_survive_account_restart() {
+        let old: AccountSettings = serde_json::from_str("{}").unwrap();
+        assert!(old.notification_sender && old.notification_content);
+        let masked = AccountSettings {
+            notification_sender: false,
+            notification_content: false,
+            ..old
+        };
+        let roundtrip: AccountSettings =
+            serde_json::from_str(&serde_json::to_string(&masked).unwrap()).unwrap();
+        assert!(!roundtrip.notification_sender && !roundtrip.notification_content);
     }
 
     #[test]

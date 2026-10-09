@@ -100,7 +100,9 @@ impl Worker {
         let Some(client) = self.client.clone() else {
             return;
         };
-        let Some((chat, id)) = self.poll_history.next(now) else {
+        let Some((chat, id)) = self.poll_history.next_for(now, |chat| {
+            self.background_history.owns(chat) && !self.background_history.poll_owned(chat)
+        }) else {
             return;
         };
         let prepared = (|| {
@@ -117,13 +119,15 @@ impl Worker {
             self.emit_message(&chat, &id);
             return;
         };
+        self.background_history.claim_poll(chat.clone());
+        self.background_history.started(&chat, now);
         log::info!(
             "poll recovery: requesting phone history; anchor_present={}",
             !anchor.is_empty()
         );
         let commands = self.commands.clone();
         tokio::spawn(async move {
-            if client
+            match client
                 .fetch_message_history(
                     &jid,
                     &anchor,
@@ -135,16 +139,23 @@ impl Worker {
                     PHONE_BATCH,
                 )
                 .await
-                .is_err()
             {
-                log::info!("poll recovery: phone history request failed");
-                let _ = commands.send(Command::PollHistoryFailed {
-                    chat,
-                    message: id,
-                    requested: now,
-                });
-            } else {
-                log::info!("poll recovery: phone history request sent");
+                Err(_) => {
+                    log::info!("poll recovery: phone history request failed");
+                    let _ = commands.send(Command::PollHistoryFailed {
+                        chat,
+                        message: id,
+                        requested: now,
+                    });
+                }
+                Ok(session) => {
+                    let _ = commands.send(Command::HistoryRequested {
+                        chat,
+                        requested: now,
+                        session,
+                    });
+                    log::info!("poll recovery: phone history request sent");
+                }
             }
         });
     }

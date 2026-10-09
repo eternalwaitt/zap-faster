@@ -23,7 +23,7 @@ use whatsapp_rust::pair_code::PairCodeOptions;
 use whatsapp_rust::prelude::{
     Bot, BotHandle, Client, Jid, MessageBuilderExt, MessageExt, MessageField, SendOptions, wa,
 };
-use whatsapp_rust::send::RevokeType;
+use whatsapp_rust::send::{PinDuration, RevokeType};
 use whatsapp_rust::types::events as wa_events;
 use whatsapp_rust::types::message::{EncMediaType, MessageInfo, MessageSource};
 use whatsapp_rust::types::presence::{ChatActivity, PresenceStatus, ReceiptType};
@@ -42,6 +42,8 @@ mod contact_names;
 mod device_store;
 mod early_events;
 use early_events::WaitingReaction;
+mod archive_sync;
+mod background_history;
 mod favorite_chats;
 mod interactive;
 mod link_watch;
@@ -85,6 +87,8 @@ const THUMBNAIL_SIDE: u32 = 96;
 const PROFILE_PICTURE_SIDE: u32 = 640;
 /// Sticker download batch size for the picker.
 const STICKER_FETCH_LIMIT: usize = 40;
+/// How many starred messages the list shows.
+const STARRED_LIMIT: usize = 200;
 const ATTACHMENT_LIMIT_ERROR: &str = "This attachment is larger than the 64 MiB download limit";
 const ATTACHMENT_TIMEOUT: Duration = Duration::from_secs(120);
 
@@ -277,6 +281,8 @@ pub const PINNED_CHATS: usize = 3;
 /// WhatsApp Plus raises the limit to twenty.
 pub const PLUS_PINNED_CHATS: usize = 20;
 
+/// Seven days: the pin length WhatsApp offers for a message pinned in a chat.
+const PIN_SECS: i64 = 7 * 24 * 60 * 60;
 /// Reports how many chats this account may pin. The AB props arrive shortly
 /// after connecting and there is no event for them, so this polls briefly.
 fn spawn_pin_limit_check(
@@ -524,6 +530,9 @@ pub async fn run(
         contact_generation: 0,
 
         privacy_retry: Instant::now(),
+        star_active: None,
+        pin_generation: HashMap::new(),
+        pin_active: None,
         withheld_pages: Vec::new(),
         dirs,
         events,
@@ -563,6 +572,10 @@ pub async fn run(
         online_wanted: false,
         online_changed: Instant::now(),
         online_sent: None,
+        deferred_archive_updates: HashMap::new(),
+        presence_generation: 0,
+        presence_pending: None,
+        presence_retry: Instant::now(),
         pending_older: HashMap::new(),
         older_warned: HashSet::new(),
         pending_avatars: HashMap::new(),
@@ -597,6 +610,7 @@ pub async fn run(
         favorite_chats: Default::default(),
         poll_decrypting: 0,
         poll_history: Default::default(),
+        background_history: Default::default(),
         poll_sending: HashSet::new(),
         interactive_sending: HashMap::new(),
         receipts_watch: None,
@@ -629,6 +643,9 @@ pub async fn run(
                 }
             }
             Some(event) = wa_events.recv() => match event {
+                RuntimeEvent::PresenceFinished { generation, online, accepted } => {
+                    worker.presence_finished(generation, online, accepted);
+                }
                 RuntimeEvent::WhatsApp(event) => worker.handle_wa_event(event).await,
                 RuntimeEvent::MessageRemoval { generation, event } => {
                     worker.handle_session_deletion(generation, event).await;
@@ -671,9 +688,12 @@ pub async fn run(
                 worker.pump_group_info();
                 worker.pump_favorite_stickers();
                 worker.pump_read_sync();
+                worker.pump_star_sync();
+                worker.pump_archive_sync();
                 worker.pump_favorite_chats();
                 worker.pump_poll_votes();
                 worker.pump_poll_history();
+                worker.pump_background_history();
                 worker.prune_waiting_receipts();
             }
         }
@@ -682,6 +702,11 @@ pub async fn run(
 }
 
 enum RuntimeEvent {
+    PresenceFinished {
+        generation: u64,
+        online: bool,
+        accepted: bool,
+    },
     WhatsApp(Arc<wa_events::Event>),
     MessageRemoval {
         generation: u64,
@@ -894,6 +919,13 @@ struct Worker {
     contact_generation: u64,
 
     privacy_retry: Instant,
+    /// Latest star or unstar attempt per message. A finished request whose
+    /// generation is older than this is dropped.
+    star_active: Option<(crate::archive::StarChange, i64)>,
+    /// Latest pin or unpin attempt per message. A finished request whose
+    /// generation is older than this is dropped.
+    pin_generation: HashMap<(String, String), u64>,
+    pin_active: Option<(ChatId, String, u64)>,
     /// Transcript pages asked for while private content was withheld. Their
     /// answers never reached the interface, which still waits for them, so
     /// they are read again once content is shown (#180).
@@ -903,6 +935,7 @@ struct Worker {
     favorite_chats: favorite_chats::FavoriteChats,
     poll_decrypting: usize,
     poll_history: poll_history::Requests,
+    background_history: background_history::Recovery,
     poll_sending: HashSet<(ChatId, String)>,
     interactive_sending: HashMap<(ChatId, String), String>,
     /// The group message whose "Message info" is open.
@@ -970,6 +1003,10 @@ struct Worker {
     online_changed: Instant,
     /// The presence last announced on this connection.
     online_sent: Option<bool>,
+    deferred_archive_updates: HashMap<ChatId, (bool, i64)>,
+    presence_generation: u64,
+    presence_pending: Option<bool>,
+    presence_retry: Instant,
     /// Pending phone-history requests by chat.
     pending_older: HashMap<ChatId, OlderRequest>,
     /// Chats already told that the phone did not answer; cleared when the
@@ -1043,6 +1080,7 @@ struct OlderRequest {
     /// Whether the reader asked by scrolling to the top. Only these report a
     /// phone that does not answer.
     explicit: bool,
+    background: bool,
 }
 
 struct ParsedChat {
@@ -1070,6 +1108,7 @@ struct ParsedChat {
     revoked: Vec<String>,
     poll_updates: Vec<HistoryPollUpdate>,
     reactions: Vec<HistoryReaction>,
+    pins: Vec<HistoryPin>,
     clips: Vec<HistoryClip>,
 }
 
@@ -1110,6 +1149,17 @@ struct HistoryPollUpdate {
     update: wa::message::PollUpdateMessage,
 }
 
+/// A pin or unpin the phone's history carries for one message.
+struct HistoryPin {
+    target: String,
+    pinned: bool,
+    duration_secs: u32,
+    at: i64,
+    at_ms: i64,
+    /// Who pinned it, for the notice the chat shows.
+    pinner: crate::archive::Pinner,
+}
+
 /// Standalone reaction from history, applied after the parent row is stored.
 struct HistoryReaction {
     target: String,
@@ -1126,6 +1176,7 @@ enum HistoryReactionBody {
 }
 
 struct ParsedMessage {
+    starred: Option<bool>,
     id: String,
     sender: Option<String>,
     from_me: bool,
@@ -1190,6 +1241,8 @@ impl Worker {
                     | Event::SearchHits { .. }
                     | Event::Labels(_)
                     | Event::Typing { .. }
+                    | Event::StarredList { .. }
+                    | Event::Pins { .. }
             )
         {
             return;
@@ -1212,6 +1265,157 @@ impl Worker {
                 log::warn!("could not synchronize a chat preference");
             }
         });
+    }
+
+    /// Persist the reader's intent before attempting network synchronization.
+    fn set_star(&mut self, chat: ChatId, id: String, starred: bool) {
+        let chat = self.canonical_str(&chat);
+        if !self.privacy_ready {
+            return;
+        }
+        if !matches!(self.archive.message(&chat,&id), Ok(Some(ref row)) if !row.status.is_local() && !matches!(row.content,Content::Revoked))
+        {
+            return;
+        }
+        match self
+            .archive
+            .queue_star(&chat, &id, starred, jiff::Timestamp::now().as_millisecond())
+        {
+            Ok(()) => {
+                self.emit_stars(&chat);
+                self.emit_starred();
+                self.pump_star_sync();
+            }
+            Err(_) => self.emit(Event::Error("Could not save the star change".into())),
+        }
+    }
+
+    fn emit_stars(&self, chat: &str) {
+        if let Ok(ids) = self.archive.starred_ids(chat) {
+            self.emit(Event::Stars {
+                chat: chat.to_owned(),
+                ids: ids.into_iter().collect(),
+            });
+        }
+    }
+
+    /// Only one regular_low mutation at a time, sharing read-state backoff.
+    fn pump_star_sync(&mut self) {
+        if !self.privacy_ready
+            || !matches!(self.status, LinkStatus::Connected)
+            || !self.read_sync.ready(Instant::now())
+        {
+            return;
+        }
+        let Some(client) = self.client.clone() else {
+            return;
+        };
+        let change = match self.archive.next_star_change() {
+            Ok(Some(change)) => change,
+            Ok(None) => return,
+            Err(_) => {
+                log::warn!("could not read pending star changes");
+                return;
+            }
+        };
+        let Ok(Some(target)) = self.archive.message(&change.chat, &change.id) else {
+            return;
+        };
+        if target.status.is_local() || matches!(target.content, Content::Revoked) {
+            if self.archive.delete_star(&change.chat, &change.id).is_err() {
+                log::warn!("could not discard invalid pending star");
+            }
+            return;
+        }
+        let Some(jid) = Self::jid_of(&change.chat) else {
+            return;
+        };
+        let participant = (jid.is_group() && !target.from_me)
+            .then(|| Self::jid_of(&target.sender))
+            .flatten();
+        let from_me = target.from_me;
+        if !self.read_sync.start_star(change.sequence, Instant::now()) {
+            return;
+        }
+        let at = jiff::Timestamp::now().as_millisecond();
+        self.star_active = Some((change.clone(), at));
+        let commands = self.commands.clone();
+        let epoch = self.privacy_generation;
+        tokio::spawn(async move {
+            let target = whatsapp_rust::MessageId::new(&change.id).and_then(|id| {
+                whatsapp_rust::MessageRef::new(&jid, id, participant.as_ref(), from_me)
+            });
+            let result = match target {
+                Err(_) => Err("Invalid star message reference".to_owned()),
+                Ok(target) => {
+                    let actions = client.chat_actions();
+                    tokio::time::timeout(Duration::from_secs(60), async {
+                        if change.starred {
+                            actions.star_message(&target).await
+                        } else {
+                            actions.unstar_message(&target).await
+                        }
+                    })
+                    .await
+                    .map_err(|_| "Star synchronization timed out".to_owned())
+                    .and_then(|r| r.map_err(|_| "Star synchronization failed".to_owned()))
+                }
+            };
+            let _ = commands.send(Command::Starred {
+                epoch,
+                chat: change.chat,
+                message: change.id,
+                starred: change.starred,
+                generation: change.sequence,
+                result,
+            });
+        });
+    }
+
+    fn star_finished(&mut self, token: u64, success: bool) {
+        if !self.read_sync.finish_star(token, success, Instant::now()) {
+            return;
+        }
+        let Some((mut change, at)) = self.star_active.take() else {
+            return;
+        };
+        change.chat = self.canonical_str(&change.chat);
+        if success {
+            if self.archive.finish_star_change(&change, at).is_err() {
+                log::warn!("could not finish a star change; retry retained");
+            }
+            self.emit_stars(&change.chat);
+            self.emit_starred();
+            self.pump_read_sync();
+            self.pump_star_sync();
+        } else {
+            log::warn!("star synchronization paused; local change retained");
+        }
+    }
+
+    /// Action time, never receipt time, determines whether a replay is older.
+    fn star_update(&mut self, update: &wa_events::StarUpdate) {
+        let chat = self.canonical(&update.chat_jid);
+        if self.message_was_removed(&chat, &update.message_id) {
+            return;
+        }
+        let at = update
+            .action_timestamp
+            .map(|time| time.timestamp_millis())
+            .unwrap_or(0);
+        match self.archive.set_star(
+            &chat,
+            &update.message_id,
+            update.action.starred.unwrap_or(false),
+            at,
+        ) {
+            Ok(true) => {
+                self.emit_stars(&chat);
+                self.emit_starred();
+            }
+            Ok(false) => {}
+            Err(_) => log::warn!("could not store a remote star update"),
+        }
     }
 
     /// Deletes attachment files that belonged to a removed chat. Only the
@@ -1264,6 +1468,8 @@ impl Worker {
                             through,
                         });
                         self.emit_chat(chat);
+                        self.emit_stars(chat);
+                        self.emit_pins(chat);
                     }
                 } else {
                     log::info!("chat removal: no matching cached chat");
@@ -1289,6 +1495,8 @@ impl Worker {
                         through,
                     });
                     self.emit_chat(chat);
+                    self.emit_stars(chat);
+                    self.emit_pins(chat);
                 }
                 true
             }
@@ -1357,6 +1565,24 @@ impl Worker {
         }
     }
 
+    fn emit_starred(&self) {
+        self.emit_starred_page(0);
+    }
+
+    fn emit_starred_page(&self, offset: usize) {
+        match self.archive.starred_page(STARRED_LIMIT + 1, offset) {
+            Ok(mut list) => {
+                let more = list.len() > STARRED_LIMIT;
+                list.truncate(STARRED_LIMIT);
+                for entry in &mut list {
+                    self.polish(&mut entry.message);
+                }
+                self.emit(Event::StarredList { offset, list, more });
+            }
+            Err(_) => self.emit(Event::Error("Could not read starred messages".to_owned())),
+        }
+    }
+
     fn emit_chat(&self, id: &str) {
         if let Ok(Some(mut chat)) = self.archive.chat(id) {
             self.polish_chat(&mut chat);
@@ -1383,6 +1609,10 @@ impl Worker {
     fn set_status(&mut self, status: LinkStatus) {
         if self.status != status {
             log::info!("link: {}", status.log_label());
+            self.presence_generation = self.presence_generation.wrapping_add(1);
+            self.presence_pending = None;
+            self.online_sent = None;
+            self.presence_retry = Instant::now();
             self.status = status.clone();
             self.emit(Event::Link(status));
             // A lost link fails unsent messages at once; a restored one
@@ -1935,7 +2165,9 @@ impl Worker {
 
     /// Announces "unavailable" once the window has stayed away long enough.
     fn settle_presence(&mut self) {
-        if self.unavailable_due() {
+        if self.online_wanted {
+            self.announce_presence(true);
+        } else if self.unavailable_due() {
             self.announce_presence(false);
         }
     }
@@ -1949,24 +2181,53 @@ impl Worker {
     /// WhatsApp holds back push notifications on the phone while a linked
     /// device is available, as WhatsApp Web does while its tab has focus.
     fn announce_presence(&mut self, online: bool) {
-        if self.online_sent == Some(online) || !matches!(self.status, LinkStatus::Connected) {
+        if self.online_sent == Some(online)
+            || self.presence_pending.is_some()
+            || Instant::now() < self.presence_retry
+            || !matches!(self.status, LinkStatus::Connected)
+        {
             return;
         }
         let Some(client) = self.client.clone() else {
             return;
         };
-        self.online_sent = Some(online);
+        self.presence_pending = Some(online);
+        let generation = self.presence_generation;
+        let sender = self.wa_sender.clone();
         tokio::spawn(async move {
             let presence = client.presence();
-            let result = if online {
-                presence.set_available().await
-            } else {
-                presence.set_unavailable().await
-            };
-            if let Err(error) = result {
-                log::debug!("presence not announced: {error}");
+            let result = tokio::time::timeout(Duration::from_secs(15), async {
+                if online {
+                    presence.set_available().await
+                } else {
+                    presence.set_unavailable().await
+                }
+            })
+            .await;
+            let accepted = matches!(result, Ok(Ok(())));
+            if !accepted {
+                log::debug!("presence: network announcement failed; retry scheduled");
             }
+            let _ = sender.send(RuntimeEvent::PresenceFinished {
+                generation,
+                online,
+                accepted,
+            });
         });
+    }
+
+    fn presence_finished(&mut self, generation: u64, online: bool, accepted: bool) {
+        if generation != self.presence_generation || self.presence_pending != Some(online) {
+            return;
+        }
+        self.presence_pending = None;
+        if accepted {
+            self.online_sent = Some(online);
+            self.presence_retry = Instant::now();
+        } else {
+            self.presence_retry = Instant::now() + Duration::from_secs(5);
+        }
+        self.settle_presence();
     }
 
     fn refresh_legacy_preferences(&mut self) {
@@ -2105,6 +2366,7 @@ impl Worker {
         self.emit(Event::Syncing(self.syncing));
         // The picker may have been sent an empty Received shelf meanwhile.
         self.emit_stickers();
+        self.emit_starred();
         // Answer the reads made while content was withheld, now that the
         // chat list they belong to has been sent.
         for page in std::mem::take(&mut self.withheld_pages) {
@@ -2157,6 +2419,36 @@ impl Worker {
         }
         let chat = format!("{pn}@s.whatsapp.net");
         let lid_chat = format!("{lid}@lid");
+        if let Some(update) = self.deferred_archive_updates.remove(&lid_chat) {
+            let canonical = self
+                .deferred_archive_updates
+                .entry(chat.clone())
+                .or_insert(update);
+            if update.1 > canonical.1 {
+                *canonical = update;
+            }
+        }
+        self.background_history.canonicalize(&lid_chat, &chat);
+        self.poll_history.canonicalize(&lid_chat, &chat);
+        if let Some(request) = self.pending_older.remove(&lid_chat) {
+            let current = self
+                .pending_older
+                .entry(chat.clone())
+                .or_insert_with(|| OlderRequest {
+                    asked: request.asked,
+                    before: request.before.clone(),
+                    explicit: request.explicit,
+                    background: request.background,
+                });
+            if (current.background && !request.background)
+                || (current.background == request.background && request.asked > current.asked)
+            {
+                *current = request;
+            }
+        }
+        if self.older_warned.remove(&lid_chat) {
+            self.older_warned.insert(chat.clone());
+        }
         match self.archive.removed_message_ids(&chat) {
             Ok(ids) => {
                 for id in ids {
@@ -2640,8 +2932,10 @@ impl Worker {
                 self.refresh_legacy_preferences();
                 self.retry_avatars();
                 self.pump_read_sync();
+                self.pump_archive_sync();
                 self.pump_favorite_chats();
                 self.poll_history.reconnect(Instant::now());
+                self.background_history.reconnect();
                 self.push_favorites();
                 self.fetch_missing_favorites();
                 self.recover_favorites();
@@ -2838,14 +3132,11 @@ impl Worker {
             }
             E::ArchiveUpdate(update) => {
                 let chat = self.canonical(&update.jid);
-                // The update can arrive before history creates the chat.
-                self.ensure_chat(&chat, None);
-                let _ = self.archive.set_archived_at(
-                    &chat,
+                self.apply_remote_archive(
+                    chat,
                     update.action.archived.unwrap_or(false),
                     update.timestamp.timestamp_millis(),
                 );
-                self.emit_chat(&chat);
             }
             E::PinUpdate(update) => {
                 let chat = self.canonical(&update.jid);
@@ -2873,6 +3164,7 @@ impl Worker {
             E::RemoveRecentStickerUpdate(update) => self.recent_sticker_removed(update),
             E::FavoriteStickerUpdate(update) => self.favorite_sticker_update(update),
             E::FavoritesUpdate(update) => self.favorite_chats_update(update),
+            E::StarUpdate(update) => self.star_update(update),
             E::LockChatUpdate(update) => {
                 let chat = self.canonical(&update.jid);
                 self.ensure_chat(&chat, None);
@@ -3074,10 +3366,19 @@ impl Worker {
         self.group_info_retry.clear();
         self.presence_subscribed.clear();
         self.read_sync = ReadSync::default();
+        self.star_active = None;
+        self.pin_active = None;
+        // Keep generations monotonic when this worker links a new account.
+        // A late callback must not match that account's first same-key pin.
+        for generation in self.pin_generation.values_mut() {
+            *generation = generation.wrapping_add(1);
+        }
+        self.deferred_archive_updates.clear();
         self.favorite_chats = Default::default();
         self.poll_sending.clear();
         self.interactive_sending.clear();
         self.poll_history = Default::default();
+        self.background_history = Default::default();
         self.pending_older.clear();
         self.pending_avatars.clear();
         self.me_pn = None;
@@ -3529,6 +3830,17 @@ impl Worker {
                 from_me,
                 info.timestamp.timestamp(),
                 update,
+            );
+            return;
+        }
+        if let Some(pin) = base.pin_in_chat_message.as_option() {
+            self.ingest_pin(
+                &chat,
+                pin,
+                base,
+                info.timestamp.timestamp(),
+                &sender,
+                from_me,
             );
             return;
         }
@@ -4328,7 +4640,7 @@ impl Worker {
                 }
                 let filed = self.apply_history(parsed, !on_demand);
                 if on_demand {
-                    self.answer_older(filed);
+                    self.answer_older_session(filed, lazy.peer_data_request_session_id());
                 }
             }
             Ok(Err(error)) => {
@@ -4482,6 +4794,11 @@ impl Worker {
             let mut failed = 0;
             let mut secrets = HashMap::new();
             for message in chat.messages {
+                if let Some(starred) = message.starred
+                    && !self.message_was_removed(&id, &message.id)
+                {
+                    let _ = self.archive.history_star(&id, &message.id, starred);
+                }
                 if self.message_was_removed(&id, &message.id) {
                     removed += 1;
                     continue;
@@ -4652,6 +4969,37 @@ impl Worker {
             for reaction in chat.reactions {
                 self.apply_history_reaction(&id, reaction, &secrets);
             }
+            let had_pins = !chat.pins.is_empty();
+            for pin in chat.pins {
+                if self.message_was_removed(&id, &pin.target) || self.predates_removal(&id, pin.at)
+                {
+                    continue;
+                }
+                let written = if pin.pinned {
+                    let secs = if pin.duration_secs == 0 {
+                        PIN_SECS
+                    } else {
+                        i64::from(pin.duration_secs)
+                    };
+                    self.archive.set_pin_precise(
+                        &id,
+                        &pin.target,
+                        true,
+                        pin.at_ms,
+                        (pin.at_ms / 1000).saturating_add(secs),
+                        &pin.pinner,
+                    )
+                } else {
+                    self.archive
+                        .set_pin_precise(&id, &pin.target, false, pin.at_ms, 0, &pin.pinner)
+                };
+                if let Err(error) = written {
+                    log::warn!("could not store a history pin: {error}");
+                }
+            }
+            if had_pins {
+                self.emit_pins(&id);
+            }
             for update in chat.poll_updates {
                 let sender = if update.from_me {
                     self.me()
@@ -4720,20 +5068,87 @@ impl Worker {
     }
 
     /// Completes pending requests covered by an on-demand history chunk.
+    #[cfg(test)]
     fn answer_older(&mut self, filed: Vec<(ChatId, usize, Option<bool>)>) {
+        self.answer_older_session(filed, None);
+    }
+
+    fn answer_older_session(
+        &mut self,
+        filed: Vec<(ChatId, usize, Option<bool>)>,
+        session: Option<&str>,
+    ) {
+        let owner = session
+            .and_then(|id| self.background_history.session(id))
+            .cloned();
+        if let Some(session) = session
+            && owner.is_none()
+        {
+            self.background_history.early(session.to_owned(), filed);
+            return;
+        }
         for (chat, count, more_on_phone) in filed {
+            if session.is_none()
+                && self.background_history.attempted(&chat)
+                && self.pending_older.get(&chat).is_some_and(|request| {
+                    !self.background_history.owns_attempt(&chat, request.asked)
+                })
+            {
+                // An id-less answer cannot distinguish the expired automatic
+                // attempt from a newer reader request. Archive it silently.
+                continue;
+            }
+            if let Some((ref owner_chat, requested)) = owner {
+                if owner_chat != &chat {
+                    continue;
+                }
+                let reader_matches = self
+                    .pending_older
+                    .get(&chat)
+                    .is_some_and(|request| request.asked == requested);
+                if !reader_matches && !self.background_history.owns_attempt(&chat, requested) {
+                    continue;
+                }
+                if self
+                    .pending_older
+                    .get(&chat)
+                    .is_some_and(|request| request.asked != requested)
+                {
+                    continue;
+                }
+            }
             let more = count > 0 && more_on_phone != Some(false);
             if count > 0 {
                 // The phone answers for this chat again; a later silence is news.
                 self.older_warned.remove(&chat);
+            }
+            let progress = count > 0
+                && more
+                && self.pending_older.get(&chat).is_none_or(|request| {
+                    !request.background
+                        || self
+                            .archive
+                            .oldest(&chat)
+                            .ok()
+                            .flatten()
+                            .is_some_and(|row| (row.timestamp, row.id) != request.before)
+                });
+            let silent = self.background_history.answered(&chat, progress);
+            if silent
+                && self
+                    .pending_older
+                    .get(&chat)
+                    .is_none_or(|request| request.background)
+            {
+                self.pending_older.remove(&chat);
+                continue;
             }
             let Some(OlderRequest {
                 before: (before_time, before_id),
                 ..
             }) = self.pending_older.remove(&chat)
             else {
-                // Late responses are already archived; tell the app to page again.
-                self.emit(Event::OlderFetched { chat, more });
+                // Unowned pages update the archive without completing a reader spinner.
                 continue;
             };
             match self
@@ -4767,6 +5182,15 @@ impl Worker {
             .map(|(chat, _)| chat.clone())
             .collect();
         for chat in expired {
+            if self
+                .pending_older
+                .get(&chat)
+                .is_some_and(|request| request.background)
+            {
+                self.pending_older.remove(&chat);
+                self.background_history.stop(&chat);
+                continue;
+            }
             let explicit = self
                 .pending_older
                 .remove(&chat)
@@ -4791,6 +5215,11 @@ impl Worker {
         if let Some(request) = self.pending_older.get_mut(&chat) {
             // The reader scrolled up while an automatic request was waiting.
             request.explicit |= explicit;
+            request.background = false;
+            return;
+        }
+        if self.background_history.owns(&chat) && !self.background_history.correlated(&chat) {
+            self.emit(Event::OlderFetched { chat, more: true });
             return;
         }
         if self.archive.history_start(&chat).unwrap_or(false) {
@@ -4807,7 +5236,10 @@ impl Worker {
     }
 
     fn reload_history(&mut self, chat: ChatId, message: String) {
-        if self.pending_older.contains_key(&chat) {
+        if self.pending_older.contains_key(&chat)
+            || (self.background_history.owns(&chat) && !self.background_history.correlated(&chat))
+        {
+            self.emit(Event::OlderFetched { chat, more: true });
             return;
         }
         let Ok(Some(anchor)) = self.archive.message(&chat, &message) else {
@@ -4836,29 +5268,94 @@ impl Worker {
             self.emit(Event::OlderFetched { chat, more: true });
             return;
         };
+        let requested = Instant::now();
         self.pending_older.insert(
             chat.clone(),
             OlderRequest {
-                asked: Instant::now(),
+                asked: requested,
                 before: (timestamp, id.clone()),
                 explicit,
+                background: false,
             },
         );
         let commands = self.commands.clone();
         tokio::spawn(async move {
-            if let Err(error) = client
+            match client
                 // Despite its `Ms` name, the protocol field takes Unix seconds.
                 // https://github.com/tulir/whatsmeow/commit/54650307d891f89ab346a57953d316106caee371
                 .fetch_message_history(&jid, &id, from_me, timestamp, PHONE_BATCH)
                 .await
             {
-                log::warn!("could not request older messages");
-                let _ = commands.send(Command::OlderFailed {
-                    chat: chat.clone(),
-                    error: format!("Could not request older messages from your phone: {error}"),
-                });
+                Ok(session) => {
+                    let _ = commands.send(Command::HistoryRequested {
+                        chat,
+                        requested,
+                        session,
+                    });
+                }
+                Err(error) => {
+                    log::warn!("could not request older messages");
+                    let _ = commands.send(Command::OlderFailed {
+                        chat: chat.clone(),
+                        requested,
+                        error: format!("Could not request older messages from your phone: {error}"),
+                    });
+                }
             }
         });
+    }
+
+    /// A silent account-owned page, paced behind reader and poll recovery.
+    fn pump_background_history(&mut self) {
+        if !self.status.is_connected()
+            || self.syncing
+            || !self.pending_older.is_empty()
+            || self.poll_history.busy()
+            || self.client.is_none()
+            || !self.background_history.enabled
+            || self.background_history.paused
+        {
+            return;
+        }
+        let Ok(mut chats) = self.archive.chats() else {
+            return;
+        };
+        chats.retain(|chat| {
+            !chat.locked
+                && !chat.left
+                && !chat.archived
+                && chat.kind != ChatKind::Broadcast
+                && Self::jid_of(&chat.id).is_some()
+                && !self.archive.history_start(&chat.id).unwrap_or(true)
+                && self
+                    .archive
+                    .removal_point(&chat.id)
+                    .is_ok_and(|point| point.is_none())
+        });
+        // Pinned chats first; stable ordering retains activity order otherwise.
+        chats.sort_by_key(|chat| {
+            (
+                self.background_history.focused.as_deref() != Some(&chat.id),
+                !chat.pinned,
+            )
+        });
+        let candidates: Vec<_> = chats.into_iter().map(|chat| chat.id).take(10).collect();
+        let Some(chat) = self.background_history.next(&candidates, Instant::now()) else {
+            return;
+        };
+        let (id, from_me, timestamp) = match self.archive.oldest(&chat) {
+            Ok(Some(row)) => (row.id, row.from_me, row.timestamp),
+            Ok(None) => (String::new(), false, crate::util::now()),
+            Err(_) => {
+                self.background_history.stop(&chat);
+                return;
+            }
+        };
+        self.request_history(chat.clone(), id, from_me, timestamp, false);
+        if let Some(request) = self.pending_older.get_mut(&chat) {
+            request.background = true;
+            self.background_history.started(&chat, request.asked);
+        }
     }
 
     // --- commands --------------------------------------------------------
@@ -4918,6 +5415,7 @@ impl Worker {
             Command::SendText { chat, .. }
             | Command::ReplyInteractive { chat, .. }
             | Command::SendVoice { chat, .. }
+            | Command::SendDocument { chat, .. }
             | Command::SendFiles { chat, .. }
             | Command::SendImage { chat, .. }
             | Command::SendSticker { chat, .. }
@@ -4948,6 +5446,7 @@ impl Worker {
                 message,
                 requested,
             } => {
+                let chat = self.canonical_str(&chat);
                 self.poll_history
                     .fail(&chat, &message, requested, Instant::now());
                 self.emit_message(&chat, &message);
@@ -5037,10 +5536,14 @@ impl Worker {
                 self.emit_receipts();
             }
             Command::ReadSyncFinished {
+                epoch,
                 chat,
                 through,
                 success,
             } => {
+                if epoch != self.privacy_generation {
+                    return;
+                }
                 if !self
                     .read_sync
                     .finish(&chat, through, success, Instant::now())
@@ -5053,10 +5556,14 @@ impl Worker {
                 }
             }
             Command::UnreadSyncFinished {
+                epoch,
                 chat,
                 marked_at,
                 success,
             } => {
+                if epoch != self.privacy_generation {
+                    return;
+                }
                 if !self
                     .read_sync
                     .finish_unread(&chat, marked_at, success, Instant::now())
@@ -5104,6 +5611,27 @@ impl Worker {
                 });
             }
             Command::LoadChat { chat, before } => self.load_chat(chat, before),
+            Command::LoadPins(chat) => self.emit_pins(&chat),
+            Command::HistoryRequested {
+                chat,
+                requested,
+                session,
+            } => {
+                let chat = self.canonical_str(&chat);
+                let session_copy = session.clone();
+                if let Some(filed) = self.background_history.sent(chat, requested, session) {
+                    self.answer_older_session(filed, Some(&session_copy));
+                }
+            }
+            Command::BackgroundHistory {
+                enabled,
+                paused,
+                focused,
+            } => {
+                self.background_history.enabled = enabled;
+                self.background_history.paused = paused;
+                self.background_history.focused = focused;
+            }
             Command::FetchOlder { chat, explicit } => self.fetch_older(chat, explicit),
             Command::ReloadHistory { chat, message } => self.reload_history(chat, message),
             Command::LoadUntil { chat, id, before } => self.load_until(chat, id, before),
@@ -5114,6 +5642,22 @@ impl Worker {
                 from,
                 until,
             } => self.search_chat_messages(chat, query, from, until),
+            Command::LoadStarred { offset } => self.emit_starred_page(offset),
+            Command::SetStar {
+                chat,
+                message,
+                starred,
+            } => self.set_star(chat, message, starred),
+            Command::Starred {
+                generation,
+                result,
+                epoch,
+                ..
+            } => {
+                if epoch == self.privacy_generation {
+                    self.star_finished(generation, result.is_ok());
+                }
+            }
             Command::StorageStats { messages, token } => {
                 match self.archive.storage_stats(messages) {
                     Ok(stats) => self.emit(Event::StorageStats {
@@ -5338,6 +5882,13 @@ impl Worker {
                 });
             }
             Command::Picked { chat, paths } => self.emit(Event::Picked { chat, paths }),
+            Command::SendDocument {
+                chat,
+                source,
+                caption,
+                mentions,
+                quoting,
+            } => self.send_document(chat, source, caption, mentions, quoting),
             Command::SendFiles {
                 chat,
                 paths,
@@ -6195,18 +6746,13 @@ impl Worker {
             Command::LeaveGroup { chat, archive } => {
                 self.leave_group(chat, archive).await;
             }
-            Command::SetArchived(chat, archived) => {
-                let _ = self.archive.set_archived(&chat, archived);
-                self.emit_chat(&chat);
-                self.tell_phone(&chat, move |client, jid| async move {
-                    if archived {
-                        client.chat_actions().archive_chat(&jid, None).await
-                    } else {
-                        client.chat_actions().unarchive_chat(&jid, None).await
-                    }
-                    .map_err(|error| error.to_string())
-                });
-            }
+            Command::SetArchived(chat, archived) => self.request_archive_change(chat, archived),
+            Command::ArchiveChangeFinished {
+                chat,
+                at,
+                generation,
+                accepted,
+            } => self.archive_change_finished(chat, at, generation, accepted),
             Command::DeleteChat(chat) => {
                 // The phone deletes first. Deleting here while offline would
                 // leave the chat on the phone, and the next sync would bring
@@ -6328,6 +6874,81 @@ impl Worker {
                     }
                     .map_err(|error| error.to_string())
                 });
+            }
+            Command::SetMessagePinned {
+                chat,
+                message,
+                pinned,
+                duration,
+            } => self.set_pin(chat, message, pinned, duration),
+            Command::MessagePinned {
+                chat,
+                message,
+                pinned,
+                at,
+                generation,
+                expires_at,
+                result,
+            } => {
+                if self
+                    .pin_active
+                    .as_ref()
+                    .is_some_and(|(active_chat, active_id, token)| {
+                        active_chat == &chat && active_id == &message && *token == generation
+                    })
+                {
+                    self.pin_active = None;
+                }
+                if self
+                    .pin_generation
+                    .get(&(chat.clone(), message.clone()))
+                    .copied()
+                    != Some(generation)
+                {
+                    return;
+                }
+                let chat = Self::jid_of(&chat)
+                    .map(|jid| self.canonical(&jid))
+                    .unwrap_or(chat);
+                if let Err(error) = &result {
+                    self.emit(Event::Error(error.clone()));
+                } else {
+                    if !matches!(self.archive.message(&chat,&message), Ok(Some(ref row)) if !matches!(row.content,Content::Revoked))
+                    {
+                        return;
+                    }
+                    let written = if pinned {
+                        self.archive.set_pin_precise(
+                            &chat,
+                            &message,
+                            true,
+                            at,
+                            expires_at,
+                            &crate::archive::Pinner::here(),
+                        )
+                    } else {
+                        self.archive.set_pin_precise(
+                            &chat,
+                            &message,
+                            false,
+                            at,
+                            0,
+                            &crate::archive::Pinner::here(),
+                        )
+                    };
+                    match written {
+                        Ok(true) => {
+                            self.emit(Event::PinChanged {
+                                chat: chat.clone(),
+                                message,
+                                pinned,
+                            });
+                            self.emit_pins(&chat);
+                        }
+                        Ok(false) => {}
+                        Err(_) => self.emit(Event::Error("Could not save the pin change".into())),
+                    }
+                }
             }
             Command::ChannelMutes(mutes) => {
                 for (chat, muted) in mutes {
@@ -6479,7 +7100,27 @@ impl Worker {
                 self.outgoing_finished(chat, id, result)
             }
             Command::Shutdown => {}
-            Command::OlderFailed { chat, error } => {
+            Command::OlderFailed {
+                chat,
+                requested,
+                error,
+            } => {
+                if !self
+                    .pending_older
+                    .get(&chat)
+                    .is_some_and(|request| request.asked == requested)
+                {
+                    return;
+                }
+                if self
+                    .pending_older
+                    .get(&chat)
+                    .is_some_and(|request| request.background)
+                {
+                    self.pending_older.remove(&chat);
+                    self.background_history.stop(&chat);
+                    return;
+                }
                 let explicit = self
                     .pending_older
                     .remove(&chat)
@@ -6990,11 +7631,23 @@ impl Worker {
         unsent: Unsent,
         reason: Refusal,
     ) {
+        self.refuse_with_mentions(chat, quoting, unsent, reason, Vec::new());
+    }
+
+    fn refuse_with_mentions(
+        &self,
+        chat: ChatId,
+        quoting: Option<crate::model::ReplyTarget>,
+        unsent: Unsent,
+        reason: Refusal,
+        mentions: Vec<String>,
+    ) {
         self.emit(Event::SendRefused {
             chat,
             quoting,
             unsent,
             reason,
+            mentions,
         });
     }
 
@@ -7225,6 +7878,7 @@ impl Worker {
             }
             let client = client.clone();
             let commands = self.commands.clone();
+            let epoch = self.privacy_generation;
             tokio::spawn(async move {
                 // This update is private to our devices, even with blue ticks
                 // disabled. Keep the original position when retrying offline
@@ -7238,6 +7892,7 @@ impl Worker {
                     log::debug!("chat read state not synced: {error}");
                 }
                 let _ = commands.send(Command::ReadSyncFinished {
+                    epoch,
                     chat,
                     through,
                     success: result.is_ok(),
@@ -7261,6 +7916,7 @@ impl Worker {
             }
             let client = client.clone();
             let commands = self.commands.clone();
+            let epoch = self.privacy_generation;
             tokio::spawn(async move {
                 let range = whatsapp_rust::message_range(through, None, Vec::new());
                 let result = client
@@ -7271,6 +7927,7 @@ impl Worker {
                     log::debug!("chat unread mark not synced: {error}");
                 }
                 let _ = commands.send(Command::UnreadSyncFinished {
+                    epoch,
                     chat,
                     marked_at,
                     success: result.is_ok(),
@@ -7336,6 +7993,17 @@ impl Worker {
 
     fn load_chat(&mut self, chat: ChatId, before: Option<super::PageKey>) {
         self.send_page(&chat, before.clone());
+        if before.is_none()
+            && let Ok(ids) = self.archive.starred_ids(&chat)
+        {
+            self.emit(Event::Stars {
+                chat: chat.clone(),
+                ids: ids.into_iter().collect(),
+            });
+        }
+        if before.is_none() {
+            self.emit_pins(&chat);
+        }
         if before.is_none() && ChatKind::from_id(&chat) == ChatKind::Group {
             // Force group metadata when opening a group.
             self.request_group_info(&chat, false);
@@ -8772,16 +9440,23 @@ impl Worker {
         let mut quote = match self.quote_target(&chat, quoting.as_ref()) {
             Ok(quote) => quote,
             Err(reason) => {
-                self.refuse(chat, quoting, Unsent::Files { paths, caption }, reason);
+                self.refuse_with_mentions(
+                    chat,
+                    quoting,
+                    Unsent::Files { paths, caption },
+                    reason,
+                    mentions,
+                );
                 return;
             }
         };
         let Some(client) = self.client.clone() else {
-            self.refuse(
+            self.refuse_with_mentions(
                 chat,
                 quoting,
                 Unsent::Files { paths, caption },
                 Refusal::Offline,
+                mentions,
             );
             return;
         };
@@ -8840,6 +9515,71 @@ impl Worker {
         }
     }
 
+    /// Queues original documents through the same ordered upload/send pipeline as media.
+    fn send_document(
+        &mut self,
+        chat: ChatId,
+        source: crate::model::DocumentSource,
+        caption: Option<String>,
+        mentions: Vec<String>,
+        quoting: Option<crate::model::ReplyTarget>,
+    ) {
+        let quote = match self.quote_target(&chat, quoting.as_ref()) {
+            Ok(quote) => quote,
+            Err(reason) => {
+                self.refuse_with_mentions(
+                    chat,
+                    quoting,
+                    Unsent::Document { source, caption },
+                    reason,
+                    mentions,
+                );
+                return;
+            }
+        };
+        let Some(client) = self.client.clone() else {
+            self.refuse_with_mentions(
+                chat,
+                quoting,
+                Unsent::Document { source, caption },
+                Refusal::Offline,
+                mentions,
+            );
+            return;
+        };
+        let commands = self.commands.clone();
+        let dir = self.dirs.media_cache_dir();
+        let me = self.me();
+        self.spawn_upload(chat.clone(), async move {
+            let outcome = async {
+                let (bytes, mime, name) = document_bytes(source).await?;
+                let prepared = prepare_document(&client, bytes, &mime, Some(&name)).await?;
+                quoted_outbound(
+                    &client, &chat, &me, &dir, prepared, caption, mentions, quote,
+                )
+                .await
+            }
+            .await;
+            match outcome {
+                Ok((row, raw)) => {
+                    let _ = commands.send(Command::Outbound {
+                        upload: transfers::upload_token(),
+                        chat,
+                        row: Box::new(row),
+                        raw,
+                    });
+                }
+                Err(error) => {
+                    let _ = commands.send(Command::Sent {
+                        chat,
+                        id: String::new(),
+                        error: Some(format!("Could not send the document: {error}")),
+                    });
+                }
+            }
+        });
+    }
+
     /// Encodes and dispatches pasted image pixels while preserving the quote for a refused send.
     #[allow(clippy::too_many_arguments)]
     fn send_pasted_image(
@@ -8861,12 +9601,18 @@ impl Worker {
         let quote = match self.quote_target(&chat, quoting.as_ref()) {
             Ok(quote) => quote,
             Err(reason) => {
-                self.refuse(chat, quoting, unsent(rgba, caption), reason);
+                self.refuse_with_mentions(chat, quoting, unsent(rgba, caption), reason, mentions);
                 return;
             }
         };
         let Some(client) = self.client.clone() else {
-            self.refuse(chat, quoting, unsent(rgba, caption), Refusal::Offline);
+            self.refuse_with_mentions(
+                chat,
+                quoting,
+                unsent(rgba, caption),
+                Refusal::Offline,
+                mentions,
+            );
             return;
         };
         let commands = self.commands.clone();
@@ -9146,6 +9892,188 @@ impl Worker {
             }
         });
     }
+
+    /// Pins or unpins one message for everyone in the chat, for seven days.
+    /// The archive is written only once WhatsApp answers, so a request that
+    /// never reaches the phone leaves nothing behind.
+    fn next_pin_generation(&mut self, chat: &str, id: &str) -> u64 {
+        let slot = self
+            .pin_generation
+            .entry((chat.to_owned(), id.to_owned()))
+            .or_insert(0);
+        *slot = slot.wrapping_add(1);
+        *slot
+    }
+
+    fn set_pin(
+        &mut self,
+        chat: ChatId,
+        id: String,
+        pinned: bool,
+        duration: crate::model::MessagePinDuration,
+    ) {
+        let chat = self.canonical_str(&chat);
+        if !self.privacy_ready {
+            return;
+        }
+        if self.pin_active.is_some() {
+            self.emit(Event::Error(
+                "Wait for the previous pin request to finish".into(),
+            ));
+            return;
+        }
+        let generation = self.next_pin_generation(&chat, &id);
+        let commands = self.commands.clone();
+        let now = crate::util::now();
+        let at_ms = jiff::Timestamp::now().as_millisecond();
+        if pinned && self.archive.pin_full(&chat, &id, now).unwrap_or(true) {
+            self.emit(Event::Error(
+                "This chat already has three pinned messages".to_owned(),
+            ));
+            return;
+        }
+        let (Some(client), Some(jid)) = (self.client.clone(), Self::jid_of(&chat)) else {
+            let _ = commands.send(Command::MessagePinned {
+                chat,
+                message: id,
+                pinned,
+                at: at_ms,
+                generation,
+                expires_at: now + PIN_SECS,
+                result: Err("Not connected to WhatsApp".to_owned()),
+            });
+            return;
+        };
+        let Ok(Some(target)) = self.archive.message(&chat, &id) else {
+            let _ = commands.send(Command::MessagePinned {
+                chat,
+                message: id,
+                pinned,
+                at: at_ms,
+                generation,
+                expires_at: now + PIN_SECS,
+                result: Err("This message is not stored on this computer".to_owned()),
+            });
+            return;
+        };
+        if target.status.is_local() || matches!(target.content, Content::Revoked) {
+            return;
+        }
+        let from_me = target.from_me;
+        let participant = (jid.is_group() && !from_me)
+            .then(|| Self::jid_of(&target.sender))
+            .flatten();
+        self.pin_active = Some((chat.clone(), id.clone(), generation));
+        let expires_at = now.saturating_add(duration.seconds());
+        let duration = match duration {
+            crate::model::MessagePinDuration::Hours24 => PinDuration::Hours24,
+            crate::model::MessagePinDuration::Days7 => PinDuration::Days7,
+            crate::model::MessagePinDuration::Days30 => PinDuration::Days30,
+        };
+        tokio::spawn(async move {
+            let reference = whatsapp_rust::MessageId::new(&id).and_then(|id| {
+                whatsapp_rust::MessageRef::new(&jid, id, participant.as_ref(), from_me)
+            });
+            let result = match reference {
+                Err(_) => Err("Invalid pin message reference".to_owned()),
+                Ok(reference) => tokio::time::timeout(Duration::from_secs(60), async {
+                    if pinned {
+                        client.pin_message(&reference, duration).await
+                    } else {
+                        client.unpin_message(&reference).await
+                    }
+                })
+                .await
+                .map_err(|_| {
+                    "Pin request timed out; confirm its state on your phone before retrying"
+                        .to_owned()
+                })
+                .and_then(|r| {
+                    r.map(|_| ()).map_err(|_| {
+                        "Could not confirm the pin request; check your phone before retrying"
+                            .to_owned()
+                    })
+                }),
+            };
+            let _ = commands.send(Command::MessagePinned {
+                chat,
+                message: id,
+                pinned,
+                at: at_ms,
+                generation,
+                expires_at,
+                result,
+            });
+        });
+    }
+
+    /// Stores a pin or an unpin that arrived as a message of its own, from
+    /// this account's other device or from anyone in the chat.
+    fn ingest_pin(
+        &mut self,
+        chat: &str,
+        pin: &wa::message::PinInChatMessage,
+        base: &wa::Message,
+        at: i64,
+        sender: &str,
+        from_me: bool,
+    ) {
+        let duration = base
+            .message_context_info
+            .as_option()
+            .and_then(|context| context.message_add_on_duration_in_secs)
+            .unwrap_or(0);
+        let Some((id, pinned, duration)) = pin_action(pin, duration) else {
+            return;
+        };
+        if self.message_was_removed(chat, &id) {
+            return;
+        }
+        let at_ms = pin
+            .sender_timestamp_ms
+            .filter(|at| *at > 0)
+            .unwrap_or(at.saturating_mul(1000));
+        let by = crate::archive::Pinner {
+            by_me: from_me,
+            sender: sender.to_owned(),
+        };
+        let written = if pinned {
+            let secs = if duration == 0 {
+                PIN_SECS
+            } else {
+                i64::from(duration)
+            };
+            self.archive.set_pin_precise(
+                chat,
+                &id,
+                true,
+                at_ms,
+                (at_ms / 1000).saturating_add(secs),
+                &by,
+            )
+        } else {
+            // The notice names whoever made it, so an unpin keeps it too.
+            self.archive
+                .set_pin_precise(chat, &id, false, at_ms, 0, &by)
+        };
+        match written {
+            Ok(true) => self.emit_pins(chat),
+            Ok(false) => {}
+            Err(_) => log::warn!("could not archive remote pin change"),
+        }
+    }
+
+    /// Hands one chat's active pins to the interface.
+    fn emit_pins(&self, chat: &str) {
+        match self.archive.chat_pins(chat, crate::util::now()) {
+            Ok(items) => self.emit(Event::Pins {
+                chat: chat.to_owned(),
+                items,
+                notices: self.archive.pin_notices(chat).unwrap_or_default(),
+            }),
+            Err(error) => self.emit(Event::Error(error.to_string())),
+        }
+    }
 }
 
 // --- free helpers ----------------------------------------------------------
@@ -9233,10 +10161,22 @@ async fn send_outgoing(
         if let Some(expiration) = ephemeral_expiration {
             options = options.with_ephemeral_expiration(expiration);
         }
-        client
-            .send(whatsapp_rust::SendRequest::new(&jid, message).with_options(options))
+        if jid.is_group() {
+            client
+                .send(whatsapp_rust::SendRequest::new(&jid, message).with_options(options))
+                .await
+                .map_err(outgoing::classify_send_error)?;
+        } else {
+            outgoing::send_with_device_recovery(|freshness| {
+                let request = client.send(
+                    whatsapp_rust::SendRequest::new(&jid, message.clone())
+                        .with_options(options.clone().with_device_freshness(freshness)),
+                );
+                async move { request.await.map(|_| ()) }
+            })
             .await
             .map_err(outgoing::classify_send_error)?;
+        }
         Ok(())
     }
     .await;
@@ -10273,6 +11213,18 @@ async fn prepare_media(
             file_name: file_name.map(str::to_owned),
         });
     }
+    prepare_document(client, bytes, mime, file_name).await
+}
+
+/// No decoder or transcoder touches original documents.
+async fn prepare_document(
+    client: &Client,
+    bytes: Vec<u8>,
+    mime: &str,
+    file_name: Option<&str>,
+) -> Result<Prepared, String> {
+    let size = bytes.len() as u64;
+    let mime_owned = mime.to_owned();
     let upload = transfers::upload(client, bytes.clone(), MediaType::Document)
         .await
         .map_err(|error| error.to_string())?;
@@ -10297,6 +11249,45 @@ async fn prepare_media(
         mime: mime_owned,
         file_name: Some(name),
     })
+}
+
+/// Reads original file bytes, or encodes only the pixels available on the clipboard.
+async fn document_bytes(
+    source: crate::model::DocumentSource,
+) -> Result<(Vec<u8>, String, String), String> {
+    match source {
+        crate::model::DocumentSource::File(path) => {
+            let bytes = tokio::fs::read(&path)
+                .await
+                .map_err(|error| error.to_string())?;
+            let mime = mime_guess2::from_path(&path)
+                .first_or_octet_stream()
+                .to_string();
+            let name = path
+                .file_name()
+                .map(|name| name.to_string_lossy().into_owned())
+                .ok_or_else(|| "The file has no filename".to_owned())?;
+            Ok((bytes, mime, name))
+        }
+        crate::model::DocumentSource::Pixels {
+            width,
+            height,
+            rgba,
+        } => {
+            let bytes = tokio::task::spawn_blocking(move || {
+                let image = image::RgbaImage::from_raw(width, height, rgba)
+                    .ok_or_else(|| "Clipboard image data is invalid".to_owned())?;
+                let mut bytes = std::io::Cursor::new(Vec::new());
+                image::DynamicImage::ImageRgba8(image)
+                    .write_to(&mut bytes, image::ImageFormat::Png)
+                    .map_err(|error| error.to_string())?;
+                Ok::<_, String>(bytes.into_inner())
+            })
+            .await
+            .map_err(|error| error.to_string())??;
+            Ok((bytes, "image/png".into(), "clipboard.png".into()))
+        }
+    }
 }
 
 /// Uploads a WebP sticker and builds its message without a library builder.
@@ -10637,6 +11628,7 @@ fn parse_conversation(conversation: wa::Conversation) -> ParsedChat {
     let mut revoked = Vec::new();
     let mut poll_updates = Vec::new();
     let mut reactions = Vec::new();
+    let mut pins = Vec::new();
     let mut clips = Vec::new();
     let mut newest = 0;
     for entry in &conversation.messages {
@@ -10770,6 +11762,30 @@ fn parse_conversation(conversation: wa::Conversation) -> ParsedChat {
             }
             continue;
         }
+        if let Some(pin) = base.pin_in_chat_message.as_option() {
+            let duration = base
+                .message_context_info
+                .as_option()
+                .and_then(|context| context.message_add_on_duration_in_secs)
+                .unwrap_or(0);
+            if let Some((target, pinned, duration_secs)) = pin_action(pin, duration) {
+                pins.push(HistoryPin {
+                    target,
+                    pinned,
+                    duration_secs,
+                    at: timestamp,
+                    at_ms: pin
+                        .sender_timestamp_ms
+                        .filter(|at| *at > 0)
+                        .unwrap_or(timestamp.saturating_mul(1000)),
+                    pinner: crate::archive::Pinner {
+                        by_me: from_me,
+                        sender: sender.clone().unwrap_or_default(),
+                    },
+                });
+            }
+            continue;
+        }
         if let Some(update) = base.poll_update_message.as_option() {
             poll_updates.push(HistoryPollUpdate {
                 id,
@@ -10874,6 +11890,7 @@ fn parse_conversation(conversation: wa::Conversation) -> ParsedChat {
             })
             .collect();
         messages.push(ParsedMessage {
+            starred: info.starred,
             id,
             sender,
             from_me,
@@ -10957,7 +11974,26 @@ fn parse_conversation(conversation: wa::Conversation) -> ParsedChat {
         clips,
         poll_updates,
         reactions,
+        pins,
     }
+}
+
+/// The message a pin names, whether it pins or unpins it, and for how long.
+fn pin_action(pin: &wa::message::PinInChatMessage, duration: u32) -> Option<(String, bool, u32)> {
+    let id = pin
+        .key
+        .as_option()
+        .and_then(|key| key.id.clone())
+        .filter(|id| !id.is_empty())?;
+    let pinned = match pin.r#type {
+        Some(wa::message::pin_in_chat_message::Type::PinForAll) => true,
+        Some(wa::message::pin_in_chat_message::Type::UnpinForAll) => false,
+        _ => return None,
+    };
+    if pinned && !matches!(duration, 86400 | 604800 | 2592000) {
+        return None;
+    }
+    Some((id, pinned, duration))
 }
 
 /// Displayed emoji for a reaction: `text`, else `groupingKey` when text is empty.
@@ -11015,7 +12051,51 @@ fn clear_boundary(read: crate::archive::Result<Vec<Message>>) -> Option<i64> {
 mod tests {
     use super::*;
 
-    /// Even a later task polled first must wait, while other messages stay independent.
+    /// Image documents bypass decoding and retain the original bytes and filename.
+    #[tokio::test]
+    async fn original_documents_preserve_file_bytes_and_filename_without_decoding() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("original picture.png");
+        let original = b"synthetic undecodable original bytes including metadata";
+        tokio::fs::write(&path, original).await.unwrap();
+        let (bytes, mime, name) = document_bytes(crate::model::DocumentSource::File(path))
+            .await
+            .unwrap();
+        assert_eq!(bytes, original);
+        assert_eq!(mime, "image/png");
+        assert_eq!(name, "original picture.png");
+    }
+
+    #[tokio::test]
+    async fn clipboard_documents_round_trip_every_rgba_pixel_as_png() {
+        let rgba = vec![255, 20, 10, 0, 1, 2, 3, 127, 50, 100, 200, 255];
+        let (bytes, mime, name) = document_bytes(crate::model::DocumentSource::Pixels {
+            width: 3,
+            height: 1,
+            rgba: rgba.clone(),
+        })
+        .await
+        .unwrap();
+        assert_eq!(mime, "image/png");
+        assert_eq!(name, "clipboard.png");
+        assert_eq!(
+            image::load_from_memory(&bytes)
+                .unwrap()
+                .into_rgba8()
+                .into_raw(),
+            rgba
+        );
+        assert!(
+            document_bytes(crate::model::DocumentSource::Pixels {
+                width: 2,
+                height: 1,
+                rgba: vec![0]
+            })
+            .await
+            .is_err()
+        );
+    }
+
     #[tokio::test]
     async fn edit_dispatch_reservations_preserve_each_messages_order() {
         let mut pending = PendingEdits::default();
@@ -11993,7 +13073,7 @@ mod tests {
     fn fallback_names_read_as_phones_or_ids() {
         assert_eq!(
             fallback_name("393331234567@s.whatsapp.net"),
-            "+39 333 123 456 7"
+            "+39 333 123 4567"
         );
         assert_eq!(fallback_name("1-2@g.us"), "");
         assert_eq!(fallback_name("42@lid"), "42");
@@ -13078,6 +14158,40 @@ mod tests {
         assert!(worker.archive.chat("unknown@newsletter").unwrap().is_none());
     }
 
+    #[test]
+    fn presence_only_confirms_success_and_discards_previous_connection_completions() {
+        let (mut worker, _, _, _) = receipt_tests::worker();
+        worker.presence_pending = Some(true);
+        worker.presence_finished(0, true, false);
+        assert_eq!(worker.online_sent, None);
+        assert!(worker.presence_retry > Instant::now());
+        worker.presence_generation = 1;
+        worker.presence_pending = Some(false);
+        worker.presence_finished(0, true, true);
+        assert_eq!(worker.online_sent, None);
+        assert_eq!(worker.presence_pending, Some(false));
+        worker.presence_finished(1, false, true);
+        assert_eq!(worker.online_sent, Some(false));
+        assert_eq!(worker.presence_pending, None);
+    }
+
+    #[test]
+    fn presence_focus_changes_wait_for_the_inflight_write_then_settle() {
+        let (mut worker, _, _, _) = receipt_tests::worker();
+        worker.presence_pending = Some(true);
+        worker.set_online(false);
+        worker.online_changed = Instant::now() - PRESENCE_LINGER;
+        worker.presence_finished(0, true, true);
+        assert_eq!(worker.online_sent, Some(true));
+        assert!(worker.unavailable_due());
+        worker.set_status(LinkStatus::Disconnected {
+            reason: "synthetic".into(),
+        });
+        assert_eq!(worker.online_sent, None);
+        worker.presence_finished(0, false, true);
+        assert_eq!(worker.online_sent, None);
+    }
+
     fn unconfirmed(worker: &mut Worker) {
         worker.privacy_ready = false;
         worker.privacy_confirmed = false;
@@ -13919,6 +15033,9 @@ fn offline_worker(
         contact_generation: 0,
 
         privacy_retry: Instant::now(),
+        star_active: None,
+        pin_generation: HashMap::new(),
+        pin_active: None,
         withheld_pages: Vec::new(),
         dirs: crate::paths::AppDirs::under(&root).as_account(),
         events,
@@ -13958,6 +15075,10 @@ fn offline_worker(
         online_wanted: false,
         online_changed: Instant::now(),
         online_sent: None,
+        deferred_archive_updates: HashMap::new(),
+        presence_generation: 0,
+        presence_pending: None,
+        presence_retry: Instant::now(),
         pending_older: HashMap::new(),
         older_warned: HashSet::new(),
         pending_avatars: HashMap::new(),
@@ -13992,6 +15113,7 @@ fn offline_worker(
         favorite_chats: Default::default(),
         poll_decrypting: 0,
         poll_history: Default::default(),
+        background_history: Default::default(),
         poll_sending: HashSet::new(),
         interactive_sending: HashMap::new(),
         receipts_watch: None,
@@ -15365,6 +16487,178 @@ mod receipt_tests {
     }
 
     #[test]
+    fn partial_clear_refreshes_marks_for_newer_messages() {
+        let (mut worker, events, _, _) = receipt_tests::worker();
+        let chat = "123@s.whatsapp.net";
+        worker.archive.ensure_chat(chat, "Fixture").unwrap();
+        for at in [100, 200] {
+            let id = format!("m{at}");
+            worker
+                .archive
+                .insert_message(&crate::archive::tests::message(chat, &id, at, true), None)
+                .unwrap();
+            worker.archive.star(chat, &id, at * 1000).unwrap();
+            worker
+                .archive
+                .set_pin(
+                    chat,
+                    &id,
+                    true,
+                    at,
+                    i64::MAX,
+                    &crate::archive::Pinner::here(),
+                )
+                .unwrap();
+        }
+        assert!(worker.empty_chat(chat, 100, false));
+        let emitted: Vec<_> = events.try_iter().collect();
+        assert!(
+            emitted.iter().any(
+                |event| matches!(event, Event::Stars { ids, .. } if ids == &["m200".to_owned()])
+            )
+        );
+        assert!(emitted.iter().any(|event| matches!(event, Event::Pins { items, .. } if items.len() == 1 && items[0].id == "m200")));
+    }
+
+    #[tokio::test]
+    async fn accepted_pin_follows_a_privacy_mapping_and_ignores_invalidated_token() {
+        let (mut worker, events, _, _) = receipt_tests::worker();
+        let lid = "9@lid";
+        let pn = "123@s.whatsapp.net";
+        worker.archive.ensure_chat(lid, "Fixture").unwrap();
+        worker
+            .archive
+            .insert_message(
+                &crate::archive::tests::message(lid, "target", 100, true),
+                None,
+            )
+            .unwrap();
+        worker
+            .pin_generation
+            .insert((lid.into(), "target".into()), 1);
+        worker.pin_active = Some((lid.into(), "target".into(), 1));
+        worker.learn_lid("9", "123");
+        events.try_iter().for_each(drop);
+        worker
+            .handle_command(Command::MessagePinned {
+                chat: lid.into(),
+                message: "target".into(),
+                pinned: true,
+                at: 100_000,
+                generation: 1,
+                expires_at: i64::MAX,
+                result: Ok(()),
+            })
+            .await;
+        assert!(
+            worker
+                .archive
+                .pinned_ids(pn, 101)
+                .unwrap()
+                .contains("target")
+        );
+        assert!(worker.pin_active.is_none());
+        // Logout invalidates the previous generation without reusing it.
+        for generation in worker.pin_generation.values_mut() {
+            *generation = generation.wrapping_add(1);
+        }
+        let newer = worker.next_pin_generation(lid, "target");
+        worker.pin_active = Some((lid.into(), "target".into(), newer));
+        events.try_iter().for_each(drop);
+        worker
+            .handle_command(Command::MessagePinned {
+                chat: lid.into(),
+                message: "target".into(),
+                pinned: true,
+                at: 101_000,
+                generation: 1,
+                expires_at: i64::MAX,
+                result: Err("stale".into()),
+            })
+            .await;
+        assert!(
+            events
+                .try_iter()
+                .all(|event| !matches!(event, Event::Error(_)))
+        );
+        assert_eq!(
+            worker.pin_active.as_ref().map(|(_, _, token)| *token),
+            Some(newer)
+        );
+    }
+
+    #[test]
+    fn pin_action_reads_the_target_and_unpin_type() {
+        let pin = wa::message::PinInChatMessage {
+            key: MessageField::some(wa::MessageKey {
+                id: Some("target".into()),
+                ..Default::default()
+            }),
+            r#type: Some(wa::message::pin_in_chat_message::Type::PinForAll),
+            ..Default::default()
+        };
+        assert_eq!(
+            pin_action(&pin, 604_800),
+            Some(("target".into(), true, 604_800))
+        );
+        assert!(pin_action(&pin, 0).is_none());
+        assert!(pin_action(&pin, 123).is_none());
+        let unknown = wa::message::PinInChatMessage {
+            r#type: None,
+            ..pin.clone()
+        };
+        assert!(pin_action(&unknown, 604_800).is_none());
+        let unpin = wa::message::PinInChatMessage {
+            r#type: Some(wa::message::pin_in_chat_message::Type::UnpinForAll),
+            ..pin
+        };
+        assert_eq!(pin_action(&unpin, 0), Some(("target".into(), false, 0)));
+    }
+
+    #[test]
+    fn history_reads_a_pin_without_showing_it_as_a_message() {
+        let parsed = parse_conversation(wa::Conversation {
+            id: PEER.into(),
+            messages: vec![history_entry(
+                PEER,
+                "pin",
+                true,
+                None,
+                wa::Message {
+                    pin_in_chat_message: MessageField::some(wa::message::PinInChatMessage {
+                        key: MessageField::some(wa::MessageKey {
+                            id: Some("target".into()),
+                            ..Default::default()
+                        }),
+                        r#type: Some(wa::message::pin_in_chat_message::Type::PinForAll),
+                        ..Default::default()
+                    }),
+                    message_context_info: MessageField::some(wa::MessageContextInfo {
+                        message_add_on_duration_in_secs: Some(604_800),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                },
+                Vec::new(),
+                None,
+            )],
+            ..Default::default()
+        });
+        assert!(
+            parsed.messages.is_empty(),
+            "a pin is not a message of its own"
+        );
+        assert_eq!(parsed.pins.len(), 1);
+        assert_eq!(parsed.pins[0].target, "target");
+        assert!(parsed.pins[0].pinned);
+        assert_eq!(parsed.pins[0].duration_secs, 604_800);
+        assert!(
+            parsed.pins[0].pinner.by_me,
+            "the notice says who pinned it, and this one is ours"
+        );
+    }
+
+    #[test]
     fn reaction_emoji_prefers_text_then_grouping_key() {
         assert_eq!(
             reaction_emoji(Some("🏆"), Some("👍")).as_deref(),
@@ -16735,6 +18029,131 @@ mod receipt_tests {
     }
 
     #[tokio::test]
+    async fn read_callbacks_from_before_logout_cannot_finish_a_new_same_position() {
+        let (mut worker, _events, _inbox, _wa) = worker();
+        let old_epoch = worker.privacy_generation;
+        assert!(worker.read_sync.start(PEER, 100, Instant::now()));
+        worker.on_logged_out().await;
+        assert_ne!(worker.privacy_generation, old_epoch);
+        worker.store_message(incoming("new-session", 100), None, None);
+        worker.mark_read(PEER.into(), false);
+        assert!(worker.read_sync.start(PEER, 100, Instant::now()));
+        for success in [true, false] {
+            worker
+                .handle_command(Command::ReadSyncFinished {
+                    epoch: old_epoch,
+                    chat: PEER.into(),
+                    through: 100,
+                    success,
+                })
+                .await;
+            assert!(!worker.read_sync.ready(Instant::now()));
+            assert_eq!(
+                worker.archive.pending_reads().unwrap(),
+                vec![(PEER.into(), 100)]
+            );
+        }
+        let epoch = worker.privacy_generation;
+        worker
+            .handle_command(Command::ReadSyncFinished {
+                epoch,
+                chat: PEER.into(),
+                through: 100,
+                success: true,
+            })
+            .await;
+        assert!(worker.read_sync.ready(Instant::now()));
+        assert!(worker.archive.pending_reads().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn unread_callbacks_from_before_logout_cannot_finish_a_new_same_mark() {
+        let (mut worker, _events, _inbox, _wa) = worker();
+        let old_epoch = worker.privacy_generation;
+        worker.on_logged_out().await;
+        worker.store_message(incoming("new-session", 100), None, None);
+        worker.mark_read(PEER.into(), false);
+        worker.archive.finish_read_sync(PEER, 100).unwrap();
+        worker
+            .handle_command(Command::MarkUnread(PEER.into()))
+            .await;
+        let pending = worker.archive.pending_unreads().unwrap();
+        let (_, marked_at, _) = pending[0].clone();
+        assert!(
+            worker
+                .read_sync
+                .start_unread(PEER, marked_at, Instant::now())
+        );
+        for success in [true, false] {
+            worker
+                .handle_command(Command::UnreadSyncFinished {
+                    epoch: old_epoch,
+                    chat: PEER.into(),
+                    marked_at,
+                    success,
+                })
+                .await;
+            assert!(!worker.read_sync.ready(Instant::now()));
+            assert_eq!(worker.archive.pending_unreads().unwrap(), pending);
+        }
+        let epoch = worker.privacy_generation;
+        worker
+            .handle_command(Command::UnreadSyncFinished {
+                epoch,
+                chat: PEER.into(),
+                marked_at,
+                success: true,
+            })
+            .await;
+        assert!(worker.read_sync.ready(Instant::now()));
+        assert!(worker.archive.pending_unreads().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn star_callbacks_from_before_logout_cannot_finish_a_new_request() {
+        let (mut worker, _events, _inbox, _wa) = worker();
+        let old_epoch = worker.privacy_generation;
+        worker.on_logged_out().await;
+        worker.store_message(incoming("new-session", 100), None, None);
+        worker
+            .archive
+            .queue_star(PEER, "new-session", true, 200)
+            .unwrap();
+        let change = worker.archive.next_star_change().unwrap().unwrap();
+        assert!(worker.read_sync.start_star(change.sequence, Instant::now()));
+        worker.star_active = Some((change.clone(), 300));
+        for result in [Ok(()), Err("fixture refusal".into())] {
+            worker
+                .handle_command(Command::Starred {
+                    epoch: old_epoch,
+                    chat: PEER.into(),
+                    message: change.id.clone(),
+                    starred: true,
+                    generation: change.sequence,
+                    result,
+                })
+                .await;
+            assert!(!worker.read_sync.ready(Instant::now()));
+            assert!(worker.star_active.is_some());
+            assert!(worker.archive.next_star_change().unwrap().is_some());
+        }
+        let epoch = worker.privacy_generation;
+        worker
+            .handle_command(Command::Starred {
+                epoch,
+                chat: PEER.into(),
+                message: change.id,
+                starred: true,
+                generation: change.sequence,
+                result: Ok(()),
+            })
+            .await;
+        assert!(worker.read_sync.ready(Instant::now()));
+        assert!(worker.star_active.is_none());
+        assert!(worker.archive.next_star_change().unwrap().is_none());
+    }
+
+    #[tokio::test]
     async fn a_failed_read_sync_stays_queued_until_it_succeeds() {
         let (mut worker, _events, _inbox, _wa) = worker();
         worker.store_message(incoming("a", 100), None, None);
@@ -16743,6 +18162,7 @@ mod receipt_tests {
         assert!(worker.read_sync.start(PEER, 100, now));
         worker
             .handle_command(Command::ReadSyncFinished {
+                epoch: 0,
                 chat: PEER.into(),
                 through: 100,
                 success: false,
@@ -16764,6 +18184,7 @@ mod receipt_tests {
         );
         worker
             .handle_command(Command::ReadSyncFinished {
+                epoch: 0,
                 chat: PEER.into(),
                 through: 100,
                 success: true,
@@ -16776,6 +18197,7 @@ mod receipt_tests {
         assert!(worker.read_sync.start(PEER, 200, Instant::now()));
         worker
             .handle_command(Command::ReadSyncFinished {
+                epoch: 0,
                 chat: PEER.into(),
                 through: 200,
                 success: true,
@@ -16841,6 +18263,7 @@ mod receipt_tests {
         );
         worker
             .handle_command(Command::UnreadSyncFinished {
+                epoch: 0,
                 chat: PEER.into(),
                 marked_at,
                 success: true,
@@ -17288,7 +18711,7 @@ mod receipt_tests {
                     .filter(|event| matches!(event, Event::SendRefused { .. }))
                     .collect();
                 assert!(
-                    matches!(refused.as_slice(), [Event::SendRefused { chat, quoting: Some(quote), unsent: returned, reason: refusal }] if chat == PEER && quote == &target && returned == &unsent && refusal == &reason)
+                    matches!(refused.as_slice(), [Event::SendRefused { chat, quoting: Some(quote), unsent: returned, reason: refusal, .. }] if chat == PEER && quote == &target && returned == &unsent && refusal == &reason)
                 );
             }
         }
@@ -17412,7 +18835,7 @@ mod receipt_tests {
                 assert!(
                     matches!(
                         refused.as_slice(),
-                        [Event::SendRefused { chat, quoting: q, unsent: u, reason: r }]
+                        [Event::SendRefused { chat, quoting: q, unsent: u, reason: r, .. }]
                             if chat == PEER && q.as_deref() == quoting && *u == unsent && *r == reason
                     ),
                     "{label} with {quoting:?}: {refused:?}"
@@ -18117,6 +19540,7 @@ mod chat_removal_tests {
                 messages: timestamps
                     .iter()
                     .map(|&at| ParsedMessage {
+                        starred: None,
                         id: format!("m{at}"),
                         sender: Some(chat.to_owned()),
                         from_me: false,
@@ -18141,6 +19565,7 @@ mod chat_removal_tests {
                 clips: Vec::new(),
                 poll_updates: Vec::new(),
                 reactions: Vec::new(),
+                pins: Vec::new(),
             }],
             push_names: Vec::new(),
             lids: Vec::new(),
@@ -18599,6 +20024,103 @@ mod older_history_tests {
 
     const CHAT: &str = "4915700000002@s.whatsapp.net";
 
+    #[test]
+    fn background_timeout_and_late_response_never_touch_reader_history() {
+        let (mut worker, events, _, _) = receipt_tests::worker();
+        waiting(&mut worker, false);
+        worker.pending_older.get_mut(CHAT).unwrap().background = true;
+        worker.background_history.claim(CHAT.into());
+        worker.expire_older_requests();
+        assert!(drain(&events).is_empty());
+        assert!(worker.background_history.owns(CHAT));
+        worker.fetch_older(CHAT.into(), true);
+        assert_eq!(fetched(&drain(&events)), Some(true));
+        assert!(worker.pending_older.is_empty());
+        worker.answer_older(vec![(CHAT.into(), 2, Some(true))]);
+        assert!(drain(&events).is_empty());
+        assert!(!worker.background_history.owns(CHAT));
+        worker.answer_older(vec![(CHAT.into(), 2, Some(true))]);
+        assert!(drain(&events).is_empty());
+    }
+
+    #[test]
+    fn correlated_late_pages_cannot_consume_new_reader_requests_after_reconnect() {
+        let (mut worker, events, _, _) = receipt_tests::worker();
+        waiting(&mut worker, false);
+        let old = worker.pending_older[CHAT].asked;
+        worker.pending_older.get_mut(CHAT).unwrap().background = true;
+        worker.background_history.claim(CHAT.into());
+        worker.background_history.started(CHAT, old);
+        worker
+            .background_history
+            .sent(CHAT.into(), old, "background-session".into());
+        worker.expire_older_requests();
+        assert!(drain(&events).is_empty());
+        assert!(worker.background_history.correlated(CHAT));
+        worker.background_history.reconnect();
+        waiting(&mut worker, true);
+        let new = Instant::now();
+        worker.pending_older.get_mut(CHAT).unwrap().asked = new;
+        worker
+            .background_history
+            .sent(CHAT.into(), new, "reader-session".into());
+        worker.answer_older_session(
+            vec![(CHAT.into(), 2, Some(true))],
+            Some("background-session"),
+        );
+        assert!(worker.pending_older.contains_key(CHAT));
+        assert!(drain(&events).is_empty());
+        worker.answer_older_session(vec![(CHAT.into(), 2, Some(true))], Some("reader-session"));
+        assert!(!worker.pending_older.contains_key(CHAT));
+        assert_eq!(fetched(&drain(&events)), Some(true));
+    }
+
+    #[test]
+    fn duplicate_idless_automatic_page_does_not_complete_a_new_reader_spinner() {
+        let (mut worker, events, _, _) = receipt_tests::worker();
+        waiting(&mut worker, false);
+        let original = worker.pending_older[CHAT].asked;
+        worker.pending_older.get_mut(CHAT).unwrap().background = true;
+        worker.background_history.claim(CHAT.into());
+        worker.background_history.started(CHAT, original);
+        worker.answer_older(vec![(CHAT.into(), 2, Some(true))]);
+        assert!(drain(&events).is_empty());
+        waiting(&mut worker, true);
+        worker.pending_older.get_mut(CHAT).unwrap().asked = Instant::now();
+        worker.answer_older(vec![(CHAT.into(), 2, Some(true))]);
+        assert!(worker.pending_older.contains_key(CHAT));
+        assert!(drain(&events).is_empty());
+    }
+
+    #[tokio::test]
+    async fn stale_failure_cannot_cancel_replacement_or_another_account() {
+        let (mut worker, events, _, _) = receipt_tests::worker();
+        let (mut other, other_events, _, _) = receipt_tests::worker();
+        waiting(&mut worker, true);
+        waiting(&mut other, true);
+        let current = worker.pending_older[CHAT].asked;
+        worker
+            .handle_command(Command::OlderFailed {
+                chat: CHAT.into(),
+                requested: current - Duration::from_secs(1),
+                error: "old".into(),
+            })
+            .await;
+        assert!(worker.pending_older.contains_key(CHAT));
+        assert!(drain(&events).is_empty());
+        worker
+            .handle_command(Command::OlderFailed {
+                chat: CHAT.into(),
+                requested: current,
+                error: "current".into(),
+            })
+            .await;
+        assert!(!worker.pending_older.contains_key(CHAT));
+        assert_eq!(warnings(&drain(&events)), 1);
+        assert!(other.pending_older.contains_key(CHAT));
+        assert!(drain(&other_events).is_empty());
+    }
+
     /// A phone-history request that has waited past the patience.
     fn waiting(worker: &mut Worker, explicit: bool) {
         worker.pending_older.insert(
@@ -18609,6 +20131,7 @@ mod older_history_tests {
                     .expect("the clock runs past the patience"),
                 before: (100, "m100".into()),
                 explicit,
+                background: false,
             },
         );
     }
@@ -18686,6 +20209,7 @@ mod older_history_tests {
             worker
                 .handle_command(Command::OlderFailed {
                     chat: CHAT.to_owned(),
+                    requested: worker.pending_older[CHAT].asked,
                     error: "fixture failure".into(),
                 })
                 .await;

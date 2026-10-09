@@ -1111,6 +1111,7 @@ fn video_label(gif: bool, note: bool) -> &'static str {
     }
 }
 
+/// `label: caption` with the caption whole, for a row that wraps it.
 fn with_caption(label: &str, caption: &Option<String>) -> String {
     match caption
         .as_deref()
@@ -1510,6 +1511,18 @@ impl PictureCrop {
     }
 }
 
+/// The original source of an attachment sent without photo compression.
+#[derive(Clone, Debug, PartialEq)]
+pub enum DocumentSource {
+    File(PathBuf),
+    /// Clipboard pixels have no original filename or EXIF metadata.
+    Pixels {
+        width: u32,
+        height: u32,
+        rgba: Vec<u8>,
+    },
+}
+
 /// Where a picture being edited comes from: a staged file, or a picture that
 /// was pasted and only lives in memory.
 #[derive(Clone, Debug, PartialEq)]
@@ -1852,6 +1865,24 @@ pub struct ComposerMention {
 }
 
 /// Actions queued by views and applied after drawing.
+/// Supported WhatsApp message pin durations.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum MessagePinDuration {
+    Hours24,
+    #[default]
+    Days7,
+    Days30,
+}
+impl MessagePinDuration {
+    pub fn seconds(self) -> i64 {
+        match self {
+            Self::Hours24 => 86_400,
+            Self::Days7 => 604_800,
+            Self::Days30 => 2_592_000,
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum Action {
     CancelQueued {
@@ -2113,6 +2144,12 @@ pub enum Action {
         chat: ChatId,
         id: String,
     },
+    /// Stars or unstars one message from its bubble's menu.
+    SetStar {
+        chat: ChatId,
+        message: String,
+        starred: bool,
+    },
     /// Opens the attachment picker for the current chat.
     Attach,
     /// Opens or closes the composer tools menu.
@@ -2238,6 +2275,13 @@ pub enum Action {
     /// Clears a chat's messages here and on the phone, keeping the chat.
     ClearChat(ChatId),
     SetPinned(ChatId, bool),
+    /// Pins or unpins one message for everyone in the chat.
+    SetMessagePinned {
+        chat: ChatId,
+        message: String,
+        duration: crate::model::MessagePinDuration,
+        pinned: bool,
+    },
     /// Marks a chat as a favorite, or removes the mark, here and on the phone.
     SetFavorite(ChatId, bool),
     ShowDialog(Dialog),
@@ -2267,6 +2311,10 @@ pub enum Action {
     DeleteLabel(String),
     /// Shows or leaves the archived chats.
     ShowArchived(bool),
+    /// Shows or hides the starred messages in the left panel.
+    ToggleStarred,
+    LoadMoreStarred,
+    RefreshMessagePins(ChatId),
     /// Mutes (`true`) or unmutes every followed channel.
     MuteAllChannels(bool),
     /// Joins the group of the invite being previewed.
@@ -2424,6 +2472,8 @@ pub enum Action {
     },
     /// Removes one pending attachment.
     RemovePending(usize),
+    /// Toggles original-document sending for a staged attachment.
+    TogglePendingDocument(usize),
     /// Opens the cropper on a staged picture.
     EditPicture(usize),
     /// Keeps the crop and the turn, replacing the staged picture.

@@ -15,6 +15,33 @@ pub(super) struct Requests {
 }
 
 impl Requests {
+    pub fn canonicalize(&mut self, old: &str, new: &str) {
+        if let Some(((chat, _), _)) = &mut self.active
+            && chat == old
+        {
+            *chat = new.to_owned();
+        }
+        for ((chat, _), _) in &mut self.queue {
+            if chat == old {
+                *chat = new.to_owned();
+            }
+        }
+        let mut seen = std::collections::HashSet::new();
+        self.queue.retain(|(key, _)| {
+            seen.insert(key.clone()) && self.active.as_ref().is_none_or(|(active, _)| active != key)
+        });
+        let mut tried = HashMap::new();
+        for ((chat, id), failures) in self.tried.drain() {
+            let key = (if chat == old { new.to_owned() } else { chat }, id);
+            let current = tried.entry(key).or_insert(0_u32);
+            *current = (*current).max(failures);
+        }
+        self.tried = tried;
+    }
+    pub fn busy(&self) -> bool {
+        self.active.is_some() || !self.queue.is_empty()
+    }
+
     /// Pending, requested this session, and waiting after a failed attempt.
     pub fn state(&self, chat: &str, poll: &str) -> (bool, bool, bool) {
         let key = (chat.to_owned(), poll.to_owned());
@@ -39,11 +66,19 @@ impl Requests {
         self.queue.push_back((key, now));
     }
 
+    #[cfg(test)]
     pub fn next(&mut self, now: Instant) -> Option<Key> {
+        self.next_for(now, |_| false)
+    }
+
+    pub fn next_for(&mut self, now: Instant, blocked: impl Fn(&str) -> bool) -> Option<Key> {
         if self.active.is_some() {
             return None;
         }
-        let index = self.queue.iter().position(|(_, due)| *due <= now)?;
+        let index = self
+            .queue
+            .iter()
+            .position(|((chat, _), due)| *due <= now && !blocked(chat))?;
         let (key, _) = self.queue.remove(index)?;
         self.active = Some((key.clone(), now));
         Some(key)
@@ -103,6 +138,27 @@ impl Requests {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn canonical_mapping_preserves_active_request_and_deduplicates_queued_polls() {
+        let now = Instant::now();
+        let mut requests = Requests::default();
+        requests.request("9@lid", "one", now);
+        requests.request("9@lid", "two", now);
+        requests.request("1@s.whatsapp.net", "two", now);
+        assert!(requests.next(now).is_some());
+        requests.canonicalize("9@lid", "1@s.whatsapp.net");
+        assert_eq!(
+            requests.state("1@s.whatsapp.net", "one"),
+            (true, true, false)
+        );
+        requests.finish("1@s.whatsapp.net", "one");
+        assert_eq!(
+            requests.next(now),
+            Some(("1@s.whatsapp.net".into(), "two".into()))
+        );
+        requests.finish("1@s.whatsapp.net", "two");
+        assert!(requests.next(now).is_none());
+    }
     #[test]
     fn poll_history_retries_automatically_without_spinning_or_parallel_requests() {
         let mut requests = Requests::default();

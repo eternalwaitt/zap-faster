@@ -435,6 +435,11 @@ fn sections(app: &App) -> Vec<Section> {
         ),
         |settings| &mut settings.auto_download,
     );
+    chats.account_toggle(
+        translated(locale, "Recover older history in the background"),
+        translated(locale, "Up to five pages per chat this session. Your phone may not send all history. No automatic media downloads."),
+        |settings| &mut settings.background_history,
+    );
     chats.toggle(
         translated(locale, "Transcribe received voice messages automatically"),
         translated(
@@ -520,6 +525,22 @@ fn sections(app: &App) -> Vec<Section> {
         |settings| &mut settings.notifications,
     );
     if app.account().settings.notifications {
+        notifications.account_toggle(
+            translated(locale, "Show notification sender"),
+            translated(
+                locale,
+                "Show chat names and pictures in desktop notifications.",
+            ),
+            |settings| &mut settings.notification_sender,
+        );
+        notifications.account_toggle(
+            translated(locale, "Show notification content"),
+            translated(
+                locale,
+                "Include message previews. Hidden senders also hide content.",
+            ),
+            |settings| &mut settings.notification_content,
+        );
         let (title, description) = sound_text(locale, false);
         notifications.row(title, description, |ui, app| sound_control(ui, app, false));
         notifications.row(

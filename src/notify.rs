@@ -5,6 +5,8 @@
 //! back the chat and the message it announced.
 
 use crate::settings::NotificationSound;
+#[cfg(any(target_os = "macos", test))]
+mod native_sound;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -21,14 +23,38 @@ pub use badge::Badge;
 pub use badge_windows::{Badge, Taskbar};
 
 /// A no-op taskbar badge on platforms without a taskbar badge implementation.
-#[cfg(not(any(target_os = "linux", target_os = "windows")))]
+#[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
 #[derive(Default)]
 pub struct Badge;
 
-#[cfg(not(any(target_os = "linux", target_os = "windows")))]
+#[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
 impl Badge {
     /// Does nothing; no supported desktop here reads a taskbar badge.
     pub fn set(&mut self, _count: u32) {}
+}
+
+#[cfg(target_os = "macos")]
+#[derive(Default)]
+pub struct Badge {
+    shown: Option<u32>,
+}
+
+#[cfg(target_os = "macos")]
+impl Badge {
+    /// AppKit badges are updated on the application's main thread.
+    pub fn set(&mut self, count: u32) {
+        if self.shown == Some(count) {
+            return;
+        }
+        let Some(main) = objc2::MainThreadMarker::new() else {
+            return;
+        };
+        let label = (count > 0).then(|| objc2_foundation::NSString::from_str(&count.to_string()));
+        objc2_app_kit::NSApplication::sharedApplication(main)
+            .dockTile()
+            .setBadgeLabel(label.as_deref());
+        self.shown = Some(count);
+    }
 }
 
 /// Chat and message a clicked notification opens. The message id travels with
@@ -52,8 +78,8 @@ fn macos_application_ready() -> bool {
         // through AppleScript, which opens macOS's application chooser.
         match notify_rust::set_application(MACOS_APPLICATION_ID) {
             Ok(()) => true,
-            Err(error) => {
-                log::debug!("could not initialize notification application: {error}");
+            Err(_) => {
+                log::warn!("native notification application registration failed");
                 false
             }
         }
@@ -300,12 +326,23 @@ impl Notifications {
                     }
                 };
                 let system_sound = sound == NotificationSound::System;
+                #[cfg(target_os = "macos")]
+                let native_sound = native_sound::prepare(&sound).unwrap_or_else(|_| {
+                    log::warn!(
+                        "notification sound: native preparation failed; using the system sound"
+                    );
+                    Some("NSUserNotificationDefaultSoundName".into())
+                });
+                #[cfg(not(target_os = "macos"))]
+                let native_sound: Option<String> = None;
+                #[cfg(not(target_os = "macos"))]
                 play_sound(sound);
                 deliver(
                     &title,
                     &body,
                     picture.as_deref(),
                     system_sound,
+                    native_sound.as_deref(),
                     target,
                     opened,
                     wake,
@@ -372,6 +409,28 @@ pub fn locked_lines(locale: crate::i18n::Locale) -> (String, String) {
     )
 }
 
+/// Sender masking also masks message text and pictures to avoid identity leaks.
+pub fn preview_lines(
+    locale: crate::i18n::Locale,
+    show_sender: bool,
+    show_content: bool,
+    chat_name: &str,
+    is_group: bool,
+    sender: &str,
+    summary: &str,
+) -> (String, String) {
+    if !show_sender {
+        return locked_lines(locale);
+    }
+    if !show_content {
+        return (
+            chat_name.to_owned(),
+            crate::i18n::gettext(locale, "New message").into_owned(),
+        );
+    }
+    lines(chat_name, is_group, sender, summary)
+}
+
 /// Builds the notification title and body, including the group sender.
 pub fn lines(chat_name: &str, is_group: bool, sender: &str, summary: &str) -> (String, String) {
     let body = if is_group {
@@ -402,6 +461,7 @@ fn deliver(
     body: &str,
     picture: Option<&std::path::Path>,
     system_sound: bool,
+    _native_sound: Option<&str>,
     target: NotificationTarget,
     opened: Arc<Mutex<Vec<NotificationTarget>>>,
     wake: impl Fn() + Send + 'static,
@@ -476,6 +536,7 @@ fn deliver(
     body: &str,
     picture: Option<&std::path::Path>,
     system_sound: bool,
+    _native_sound: Option<&str>,
     target: NotificationTarget,
     opened: Arc<Mutex<Vec<NotificationTarget>>>,
     wake: impl Fn() + Send + 'static,
@@ -497,6 +558,7 @@ fn deliver(
     body: &str,
     picture: Option<&std::path::Path>,
     system_sound: bool,
+    native_sound: Option<&str>,
     _target: NotificationTarget,
     _opened: Arc<Mutex<Vec<NotificationTarget>>>,
     _wake: impl Fn() + Send + 'static,
@@ -515,19 +577,20 @@ fn deliver(
     let mut notification = notify_rust::Notification::new();
     notification.appname("Zap Faster").summary(title).body(body);
     #[cfg(target_os = "macos")]
-    if system_sound {
-        // The notification system's default sound; custom sounds are played
-        // by Zap Faster, and None stays silent.
-        notification.sound_name("NSUserNotificationDefaultSoundName");
+    {
+        let _ = system_sound;
+        if let Some(name) = native_sound {
+            notification.sound_name(name);
+        }
     }
     #[cfg(not(target_os = "macos"))]
-    let _ = system_sound;
+    let _ = (system_sound, native_sound);
     // Windows uses the image; macOS always uses the app icon.
     if let Some(picture) = picture {
         notification.image_path(&picture.to_string_lossy());
     }
-    if let Err(error) = notification.show() {
-        log::debug!("no notification: {error}");
+    if notification.show().is_err() {
+        log::warn!("native notification submission failed");
         failed();
     }
 }
@@ -536,6 +599,49 @@ fn deliver(
 mod tests {
     use super::*;
     use crate::model::AccountId;
+
+    #[test]
+    fn notification_preview_controls_mask_identity_content_and_group_sender_consistently() {
+        use crate::i18n::Locale;
+        for (sender, content) in [(false, false), (false, true)] {
+            assert_eq!(
+                preview_lines(
+                    Locale::English,
+                    sender,
+                    content,
+                    "Synthetic group",
+                    true,
+                    "Ada",
+                    "Private fixture"
+                ),
+                locked_lines(Locale::English)
+            );
+        }
+        assert_eq!(
+            preview_lines(
+                Locale::English,
+                true,
+                false,
+                "Synthetic group",
+                true,
+                "Ada",
+                "Private fixture"
+            ),
+            ("Synthetic group".into(), "New message".into())
+        );
+        assert_eq!(
+            preview_lines(
+                Locale::English,
+                true,
+                true,
+                "Synthetic group",
+                true,
+                "Ada",
+                "Synthetic text"
+            ),
+            ("Synthetic group".into(), "Ada: Synthetic text".into())
+        );
+    }
 
     fn account(id: &str) -> AccountId {
         AccountId(id.into())

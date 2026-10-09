@@ -182,6 +182,8 @@ pub fn handle(app: &mut App, ctx: &egui::Context) {
             app.chat_search_calendar = false;
         } else if app.chat_search_visible() && !composer_focused {
             actions.push(Action::CloseChatSearch);
+        } else if app.show_starred {
+            actions.push(Action::ToggleStarred);
         } else if app.emoji_start.is_some() {
             actions.push(Action::CloseEmojiSuggestions);
         } else if app.mention_start.is_some() {

@@ -90,6 +90,26 @@ pub struct Account {
     pub(crate) new_contact_dialog_request: Option<u64>,
     pub pair_phone: String,
     pub show_archived: bool,
+    /// Starred messages, newest star first, and whether the left panel lists
+    /// them instead of the chats.
+    pub starred: Vec<crate::archive::Starred>,
+    pub show_starred: bool,
+    pub starred_more: bool,
+    /// Ids of the starred messages of each chat, for the mark in the
+    /// conversation. Filled when a chat opens and on every confirmed star.
+    pub stars: HashMap<ChatId, HashSet<String>>,
+    /// Ids of each chat's pinned messages, for its menu and its bubble mark.
+    pub pins: HashMap<ChatId, HashSet<String>>,
+    /// Active pins of each chat, for the line under its header.
+    pub chat_pins: HashMap<ChatId, Vec<crate::archive::Pinned>>,
+    pub pin_notices: HashMap<ChatId, Vec<crate::archive::Pinned>>,
+    /// Demo/test: keep this starred row's context menu open.
+    #[cfg(any(test, feature = "demo"))]
+    pub open_list_menu: Option<(ChatId, String)>,
+    /// A starred row asked to reply: the quote starts once the message it
+    /// points at is loaded, because the composer drops a quote whose message
+    /// has not arrived yet.
+    pub reply_when_loaded: Option<(ChatId, String)>,
     pub chat_filter: ChatFilter,
     pub labels: Vec<Label>,
     pub account_privacy: crate::privacy::Snapshot,
@@ -98,6 +118,7 @@ pub struct Account {
     pub interactive_sending: HashSet<(ChatId, String)>,
     pub group_saving: HashSet<ChatId>,
     pub(crate) reported_online: Option<bool>,
+    pub(crate) reported_history: Option<(bool, bool, Option<crate::model::ChatId>)>,
     /// Chats this account may pin; WhatsApp Plus raises it once known.
     pub pin_limit: usize,
 }
@@ -174,6 +195,16 @@ impl Account {
             new_contact_dialog_request: None,
             pair_phone: String::new(),
             show_archived: false,
+            starred: Vec::new(),
+            show_starred: false,
+            starred_more: false,
+            stars: HashMap::new(),
+            pins: HashMap::new(),
+            chat_pins: HashMap::new(),
+            pin_notices: HashMap::new(),
+            #[cfg(any(test, feature = "demo"))]
+            open_list_menu: None,
+            reply_when_loaded: None,
             chat_filter: ChatFilter::All,
             labels: Vec::new(),
             account_privacy: crate::privacy::Snapshot::default(),
@@ -182,6 +213,7 @@ impl Account {
             interactive_sending: HashSet::new(),
             group_saving: HashSet::new(),
             reported_online: None,
+            reported_history: None,
             pin_limit: crate::backend::PINNED_CHATS,
         }
     }

@@ -22,6 +22,48 @@ pub fn open_or_reveal(path: &Path) -> Result<(), String> {
     })
 }
 
+/// Takes ownership of Linux browser launchers and reaps each child separately.
+/// egui's default webbrowser path drops its Child without waiting.
+#[cfg(target_os = "linux")]
+pub struct BrowserLauncher;
+
+#[cfg(target_os = "linux")]
+impl egui::plugin::Plugin for BrowserLauncher {
+    fn debug_name(&self) -> &'static str {
+        "zap-faster-browser-launcher"
+    }
+    fn output_hook(&mut self, _ctx: &egui::Context, output: &mut egui::FullOutput) {
+        output.platform_output.commands.retain(|command| {
+            let egui::OutputCommand::OpenUrl(url) = command else {
+                return true;
+            };
+            let Some(url) = crate::safety::external_url(&url.url) else {
+                return false;
+            };
+            if std::thread::Builder::new()
+                .name("browser-launcher".into())
+                .spawn(move || {
+                    let result = first_success(&[
+                        Box::new(|| {
+                            linux::launch(std::process::Command::new("gio").arg("open").arg(&url))
+                        }),
+                        Box::new(|| {
+                            linux::launch(std::process::Command::new("xdg-open").arg(&url))
+                        }),
+                    ]);
+                    if result.is_err() {
+                        log::warn!("browser launcher failed");
+                    }
+                })
+                .is_err()
+            {
+                log::warn!("could not start browser launcher");
+            }
+            false
+        });
+    }
+}
+
 type Attempt<'a> = Box<dyn Fn() -> Result<(), String> + 'a>;
 
 /// Runs the attempts in order and stops at the first that works; if none

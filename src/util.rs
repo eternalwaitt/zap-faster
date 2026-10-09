@@ -626,15 +626,23 @@ pub fn phone(digits: &str) -> String {
     if let Some(formatted) = brazilian_phone(&digits) {
         return formatted;
     }
-    let mut out = String::from("+");
-    for (index, character) in digits.chars().enumerate() {
-        // Approximate a country code followed by groups of three digits.
-        if index == 2 || (index > 2 && (index - 2) % 3 == 0) {
-            out.push(' ');
-        }
-        out.push(character);
-    }
-    out
+    let international = format!("+{digits}");
+    phonenumber::parse(None, &international)
+        .ok()
+        .map(|number| {
+            number
+                .format()
+                .mode(phonenumber::Mode::International)
+                .to_string()
+        })
+        // Unknown or malformed numbers remain legible with every digit intact.
+        .filter(|formatted| {
+            formatted
+                .chars()
+                .filter(char::is_ascii_digit)
+                .eq(digits.chars())
+        })
+        .unwrap_or(international)
 }
 
 /// Formats Brazil's `+55` numbers as `(DDD) XXXX-XXXX` or `(DDD) XXXXX-XXXX`.
@@ -962,12 +970,23 @@ mod tests {
 
     #[test]
     fn phone_numbers_are_grouped() {
-        assert_eq!(phone("393331234567"), "+39 333 123 456 7");
-        assert_eq!(phone("15551234567"), "+15 551 234 567");
+        assert_eq!(phone("393331234567"), "+39 333 123 4567");
+        assert_eq!(phone("15551234567"), "+1 555-123-4567");
         assert_eq!(phone("5511999999999"), "+55 (11) 99999-9999");
         assert_eq!(phone("551140028922"), "+55 (11) 4002-8922");
         assert_eq!(phone("551149508333"), "+55 (11) 4950-8333");
         assert_eq!(phone("+55 (11) 99999-9999"), "+55 (11) 99999-9999");
+        assert_eq!(phone("442079460018"), "+44 20 7946 0018");
+        assert_eq!(phone("33142345678"), "+33 1 42 34 56 78");
+        for digits in ["4930123456", "81312345678", "9991234", "000123", "123"] {
+            assert_eq!(
+                phone(digits)
+                    .chars()
+                    .filter(char::is_ascii_digit)
+                    .collect::<String>(),
+                digits
+            );
+        }
         assert_eq!(phone(""), "");
     }
 

@@ -261,6 +261,25 @@ pub fn rich_text(ui: &mut Ui, text: &str, font: egui::FontId, color: Color32) ->
     response
 }
 
+/// A phone label wraps rather than hiding its final recipient digits.
+pub fn phone_label(ui: &mut Ui, text: &str, font: egui::FontId, color: Color32) -> egui::Response {
+    let label = line(
+        ui,
+        text,
+        font,
+        color,
+        ui.available_width().max(1.0),
+        usize::MAX,
+    );
+    let (rect, response) = ui.allocate_exact_size(label.size(), Sense::hover());
+    response
+        .widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Label, ui.is_enabled(), text));
+    if ui.is_rect_visible(rect) {
+        label.paint(ui, rect.min, color);
+    }
+    response
+}
+
 /// Selectable version of [`rich_text`].
 pub fn selectable_rich_text(
     ui: &mut Ui,
@@ -517,6 +536,7 @@ pub fn submenu<R>(
     palette: &Palette,
     icon: Icon,
     label: &str,
+    items: &[&str],
     add_contents: impl FnOnce(&mut Ui) -> R,
 ) -> Option<egui::InnerResponse<R>> {
     let width = ui.available_width();
@@ -563,7 +583,13 @@ pub fn submenu<R>(
             palette.text,
         );
     }
-    egui::containers::menu::SubMenu::new().show(ui, &response, add_contents)
+    // The submenu supplies its own frame. Leave its margins inside the viewport.
+    let width =
+        (menu_width(ui, items, true) - 14.0).min((ui.ctx().content_rect().width() - 30.0).max(1.0));
+    egui::containers::menu::SubMenu::new().show(ui, &response, |ui| {
+        ui.set_width(width);
+        add_contents(ui)
+    })
 }
 
 pub fn menu_item(ui: &mut Ui, palette: &Palette, icon: Option<Icon>, label: &str) -> bool {
@@ -1284,6 +1310,90 @@ pub fn dotted_chip(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn international_phone_labels_preserve_final_digits_in_narrow_rows() {
+        let ctx = egui::Context::default();
+        for digits in ["442079460018", "5511999999999", "393331234567"] {
+            let text = crate::util::phone(digits);
+            let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
+                let label = line(
+                    ui,
+                    &text,
+                    theme::regular(13.0),
+                    Color32::WHITE,
+                    70.0,
+                    usize::MAX,
+                );
+                assert_eq!(label.galley.text(), text);
+                assert!(!label.galley.elided);
+                assert!(label.size().x <= 70.0);
+            });
+            output.textures_delta.clear();
+        }
+    }
+
+    #[test]
+    fn submenus_fit_translated_labels_and_stay_inside_a_narrow_viewport() {
+        for (viewport, label) in [
+            (1600.0, "Benachrichtigungston auswählen"),
+            (
+                260.0,
+                "Un libellé traduit extrêmement long pour une toute petite fenêtre",
+            ),
+        ] {
+            let palette = Palette::dark();
+            let ctx = egui::Context::default();
+            let row = pos2(60.0, 60.0);
+            let items = [label];
+            let frame = |events| {
+                let mut shown = None;
+                let mut expected = 0.0;
+                let mut output = ctx.run_ui(
+                    egui::RawInput {
+                        screen_rect: Some(Rect::from_min_size(
+                            egui::Pos2::ZERO,
+                            vec2(viewport, 800.0),
+                        )),
+                        events,
+                        ..Default::default()
+                    },
+                    |ui| {
+                        expected = menu_width(ui, &items, true).min(viewport - 16.0);
+                        let button = ui.button("Menu");
+                        egui::Popup::menu(&button)
+                            .open_memory(Some(egui::SetOpenCommand::Bool(true)))
+                            .at_position(row - vec2(40.0, 20.0))
+                            .width(180.0)
+                            .frame(menu_frame(&palette))
+                            .show(|ui| {
+                                shown =
+                                    submenu(ui, &palette, Icon::Volume2, "Sound", &items, |ui| {
+                                        menu_item(ui, &palette, None, label);
+                                    })
+                                    .map(|inner| inner.response.rect);
+                            });
+                    },
+                );
+                output.textures_delta.clear();
+                shown.map(|rect| (rect, expected))
+            };
+            frame(vec![]);
+            let mut shown = None;
+            for _ in 0..4 {
+                shown = frame(vec![egui::Event::PointerMoved(row)]);
+            }
+            let (rect, expected) = shown.expect("submenu opens on hover");
+            assert!(
+                (rect.width() - expected).abs() <= 4.0,
+                "{rect:?}, expected {expected}"
+            );
+            assert!(
+                rect.width() <= viewport,
+                "submenu remains narrower than viewport"
+            );
+        }
+    }
 
     /// A name too wide for its room rests three seconds at its start, eases
     /// to its end at 40 points a second on average, rests there as long, and

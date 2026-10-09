@@ -94,6 +94,8 @@ open = "5"
 rfd = { version = "0.17", default-features = false, features = ["xdg-portal", "wayland"] }
 arboard = { version = "3", default-features = false, features = ["image-data", "wayland-data-control"] }
 mime_guess2 = "2"
+# Offline country metadata for display only; recipient ids retain their original digits.
+phonenumber = "0.3.10"
 # Emoji names, groups, and shortcodes for picker search.
 emojis = "0.9"
 # Appends the hostname to the device name shown in WhatsApp's Linked Devices.
@@ -212,7 +214,7 @@ tray-icon = { version = "0.25", default-features = false }
 # AppKit calls for the application menus and editing commands, on the main
 # thread.
 objc2 = "0.6"
-objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSApplication", "NSResponder", "NSText", "NSView", "NSWindow"] }
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSApplication", "NSDockTile", "NSResponder", "NSText", "NSView", "NSWindow"] }
 # Reads the locale's clock format.
 objc2-foundation = { version = "0.3", default-features = false, features = ["std", "NSDateFormatter", "NSFormatter", "NSLocale", "NSString"] }
 
@@ -238,6 +240,8 @@ opusic-sys = { version = "0.7.5", features = ["no-simd"] }
 winresource = "0.1"
 
 [dev-dependencies]
+# Reproduce native accessibility consumer failures with synthetic UI frames.
+accesskit_consumer = "=0.35.0"
 tempfile = "3"
 # Checks the default log filter the way fastframe-log's logger reads it.
 # Already in the tree through fastframe-log, at this version.

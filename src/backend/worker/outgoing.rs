@@ -74,6 +74,27 @@ impl Outgoing {
     }
 }
 
+/// Only these typed failures guarantee that no message was put on the wire.
+/// Refresh once; uncertain acknowledgements and transport failures never retry.
+pub(super) async fn send_with_device_recovery<F, Fut>(mut send: F) -> Result<(), SendError>
+where
+    F: FnMut(whatsapp_rust::cache::Freshness) -> Fut,
+    Fut: std::future::Future<Output = Result<(), SendError>>,
+{
+    let first = send(whatsapp_rust::cache::Freshness::CachePreferred).await;
+    if matches!(
+        &first,
+        Err(SendError::NoRecipientDevice(_) | SendError::PrimaryDeviceRejected(_))
+    ) {
+        log::debug!(
+            "send: recipient device resolution failed before transmission; refreshing once"
+        );
+        send(whatsapp_rust::cache::Freshness::Refresh).await
+    } else {
+        first
+    }
+}
+
 pub(super) fn classify_send_error(error: SendError) -> SendFailure {
     // This typed IQ failure is a pre-transmission query (routing/devices/keys),
     // not an acknowledgement timeout or an uncertain socket write. Never infer
@@ -664,6 +685,58 @@ mod tests {
     use super::super::receipt_tests::{PEER, own_message, worker};
     use super::*;
     use crate::backend::Command;
+
+    #[tokio::test]
+    async fn device_recovery_is_bounded_and_uncertain_transmissions_are_never_repeated() {
+        use whatsapp_rust::cache::Freshness;
+        use whatsapp_rust::wacore::send::{NoRecipientDeviceError, PrimaryDeviceRejected};
+        for primary in [false, true] {
+            let mut calls = Vec::new();
+            let result = send_with_device_recovery(|freshness| {
+                calls.push(freshness);
+                std::future::ready(Err(if primary {
+                    SendError::PrimaryDeviceRejected(PrimaryDeviceRejected::new(410))
+                } else {
+                    SendError::NoRecipientDevice(NoRecipientDeviceError::Unresolved)
+                }))
+            })
+            .await;
+            assert!(result.is_err());
+            assert_eq!(calls, [Freshness::CachePreferred, Freshness::Refresh]);
+        }
+        let mut calls = 0;
+        assert!(
+            send_with_device_recovery(|_| {
+                calls += 1;
+                std::future::ready(Err(SendError::Iq(IqError::Timeout)))
+            })
+            .await
+            .is_err()
+        );
+        assert_eq!(calls, 1);
+        let mut calls = 0;
+        assert!(
+            send_with_device_recovery(|_| {
+                calls += 1;
+                std::future::ready(Err(SendError::Internal(anyhow::anyhow!(
+                    "synthetic uncertain failure"
+                ))))
+            })
+            .await
+            .is_err()
+        );
+        assert_eq!(calls, 1);
+        let mut calls = 0;
+        assert!(
+            send_with_device_recovery(|_| {
+                calls += 1;
+                std::future::ready(Ok(()))
+            })
+            .await
+            .is_ok()
+        );
+        assert_eq!(calls, 1);
+    }
 
     fn job(chat: &str, id: &str) -> Job {
         Job {
