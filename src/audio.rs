@@ -34,10 +34,57 @@ fn rate() -> NonZero<u32> {
 /// the next write there fails with `Broken pipe` and the print macro panics,
 /// which aborts the whole app in a release build. Keep it off, and report
 /// failures of our own through the log instead.
-pub fn open_output() -> Result<rodio::MixerDeviceSink, rodio::DeviceSinkError> {
-    let mut output = rodio::DeviceSinkBuilder::open_default_sink()?;
-    output.log_on_drop(false);
-    Ok(output)
+pub struct Output {
+    sink: rodio::MixerDeviceSink,
+    device: Option<rodio::cpal::DeviceId>,
+    failed: Arc<AtomicBool>,
+    checked: Instant,
+}
+
+impl Output {
+    pub fn mixer(&self) -> &rodio::mixer::Mixer {
+        self.sink.mixer()
+    }
+
+    /// Active playback already has a clock. Check routing at most once per
+    /// second on that clock, without adding an idle repaint timer.
+    pub fn route_changed(&mut self) -> bool {
+        use rodio::cpal::traits::{DeviceTrait, HostTrait};
+        if self.failed.load(Ordering::Acquire) {
+            return true;
+        }
+        if self.checked.elapsed() < Duration::from_secs(1) {
+            return false;
+        }
+        self.checked = Instant::now();
+        let current = rodio::cpal::default_host()
+            .default_output_device()
+            .and_then(|device| device.id().ok());
+        current != self.device
+    }
+}
+
+pub fn open_output() -> Result<Output, rodio::DeviceSinkError> {
+    use rodio::cpal::traits::{DeviceTrait, HostTrait};
+    let device = rodio::cpal::default_host()
+        .default_output_device()
+        .ok_or(rodio::DeviceSinkError::NoDevice)?;
+    let id = device.id().ok();
+    let failed = Arc::new(AtomicBool::new(false));
+    let report = failed.clone();
+    // Do not silently enumerate other devices when the selected one fails.
+    let mut sink = rodio::DeviceSinkBuilder::from_device(device)?
+        .with_error_callback(move |_| {
+            report.store(true, Ordering::Release);
+        })
+        .open_stream()?;
+    sink.log_on_drop(false);
+    Ok(Output {
+        sink,
+        device: id,
+        failed,
+        checked: Instant::now(),
+    })
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -108,7 +155,7 @@ type Decoded = Arc<Mutex<Option<Result<Vec<f32>, String>>>>;
 /// Plays one clip at a time through the default output device.
 pub struct Player {
     waker: Waker,
-    output: Option<(rodio::MixerDeviceSink, rodio::Player)>,
+    output: Option<(Output, rodio::Player)>,
     loaded: Option<Loaded>,
     decoding: Option<Decoding>,
     /// Playback speed applied to the current clip and to later ones.
@@ -433,6 +480,31 @@ impl Player {
             self.apply_speed();
             // The speed may have moved on while this compression built.
             self.ensure_stretch();
+        }
+        if self
+            .output
+            .as_mut()
+            .is_some_and(|(output, _)| output.route_changed())
+        {
+            let status = self
+                .loaded
+                .as_ref()
+                .map(|loaded| self.status(&loaded.message));
+            self.output = None;
+            if let Some(status) = status {
+                let fraction = if status.total.is_zero() {
+                    0.0
+                } else {
+                    status.position.as_secs_f32() / status.total.as_secs_f32()
+                };
+                if let Err(error) = self.restart(fraction) {
+                    if let Some(loaded) = self.loaded.as_mut() {
+                        loaded.paused = true;
+                        loaded.base = status.position;
+                    }
+                    return Err(error);
+                }
+            }
         }
         let ended = match (&mut self.loaded, &self.output) {
             (Some(loaded), Some((_, sink))) if !loaded.done && !loaded.paused && sink.empty() => {
@@ -761,6 +833,27 @@ pub fn recording_path(dir: &Path) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    #[ignore = "opens physical output with synthetic silence only"]
+    fn synthetic_silence_uses_the_current_default_and_stream_errors_request_reopening() {
+        use rodio::cpal::traits::{DeviceTrait, HostTrait};
+        let expected = rodio::cpal::default_host()
+            .default_output_device()
+            .expect("default output")
+            .id()
+            .ok();
+        let mut output = open_output().expect("open selected output");
+        assert_eq!(output.device, expected);
+        let player = rodio::Player::connect_new(output.mixer());
+        player.append(SamplesBuffer::new(mono(), rate(), vec![0.0; 2400]));
+        player.sleep_until_end();
+        output.failed.store(true, Ordering::Release);
+        assert!(output.route_changed());
+        drop(output);
+        let reopened = open_output().expect("reopen selected output");
+        assert_eq!(reopened.device, expected);
+    }
 
     /// A stepped recorder keeps recording, but its levels stop asking the
     /// window for frames of their own; unstepped, they ask again.

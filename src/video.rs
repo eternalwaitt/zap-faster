@@ -70,6 +70,7 @@ impl Status {
 pub enum Notice {
     /// Zap Faster cannot decode this video, so it should open in the system player.
     Unsupported(PathBuf),
+    OutputUnavailable,
 }
 
 /// What the decoder thread hands to the interface thread.
@@ -196,7 +197,7 @@ pub fn arc(center: egui::Pos2, radius: f32, fraction: f32) -> Vec<egui::Pos2> {
 
 /// The sound of the playing video on the default output device.
 struct Sound {
-    device: rodio::MixerDeviceSink,
+    device: crate::audio::Output,
     sink: rodio::Player,
     /// Video time the queued sound starts from.
     base: Duration,
@@ -1012,6 +1013,26 @@ impl Player {
         }
         if session.state != State::Playing {
             return None;
+        }
+        if session
+            .sound
+            .as_mut()
+            .is_some_and(|sound| sound.device.route_changed())
+        {
+            let from = session.clock.position(now);
+            session.sound = Sound::open(
+                &session.path,
+                from,
+                self.muted,
+                self.speed,
+                self.waker.clone(),
+            );
+            if let Some(sound) = &session.sound {
+                sound.sink.play();
+            } else {
+                session.pause(now);
+                return Some(Notice::OutputUnavailable);
+            }
         }
         let sound = session.sound.as_ref().and_then(Sound::position);
         if let Some(sound) = sound {

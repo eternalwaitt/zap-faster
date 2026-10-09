@@ -872,6 +872,19 @@ fn composer(app: &mut App, ui: &mut egui::Ui, chat: &Chat) {
                 }),
         )
         .show(ui, |ui| {
+            let uploads = app.uploads.clone();
+            for (token, (upload_chat, bytes, total)) in &uploads {
+                if upload_chat != &chat.id { continue; }
+                ui.horizontal(|ui| {
+                    if *total == 0 {
+                        ui.spinner();
+                        ui.label(crate::i18n::gettext(app.locale, "Preparing attachment"));
+                    } else {
+                        ui.add(egui::ProgressBar::new((*bytes as f32 / *total as f32).min(1.0)).text(format!("{} / {}", crate::util::bytes(*bytes), crate::util::bytes(*total))));
+                    }
+                    if ui.small_button(crate::i18n::gettext(app.locale, "Cancel")).clicked() { app.actions.push(Action::CancelUpload(*token)); }
+                });
+            }
             if let Some((selected_chat, selected)) = app.selection.clone()
                 && selected_chat == chat.id
             {
@@ -3687,7 +3700,10 @@ pub fn edge_scroll(pointer: f32, top: f32, bottom: f32) -> f32 {
 
 /// Starts a reply when the response was double-clicked, as the menu's "Reply".
 fn reply_on_double_click(response: &egui::Response, message: &Message, actions: &mut Vec<Action>) {
-    if response.double_clicked() && !matches!(message.content, Content::Revoked) {
+    if response.double_clicked()
+        && !matches!(message.content, Content::Revoked)
+        && !(message.from_me && message.status.is_local())
+    {
         actions.push(Action::Reply(message.id.clone()));
     }
 }
@@ -3925,6 +3941,7 @@ fn bubble_frame(
             } else {
                 footer(ui, view, last, slot, actions);
             }
+            outgoing_controls(ui, view, message, actions);
             if matches!(message.content, Content::Poll { .. }) {
                 super::polls::results_button(
                     ui,
@@ -3986,7 +4003,11 @@ fn bubble_frame(
     // and footer. Double-click on the body keeps selecting the word.
     reply_on_double_click(&bubble, message, actions);
 
-    reaction_affordance(ui, view, message, &bubble, actions);
+    // Local and failed outgoing rows cannot carry reactions. Failed rows
+    // retain their other actions; reaction eligibility is intentionally narrow.
+    if message.allows_reaction() {
+        reaction_affordance(ui, view, message, &bubble, actions);
+    }
     // Read right-click from input because inner widgets own their responses.
     // The whole row counts, the empty strip beside the bubble included, as in
     // other messaging apps (#240). Count only the part inside the transcript's
@@ -4658,6 +4679,107 @@ fn footer(
     }
 }
 
+/// The status line under a message that waits for a rate-limit cooldown,
+/// with its Cancel, or under an interrupted send nobody owns any more. A
+/// normal send shows nothing here: its clock tick says enough. No countdown
+/// repaint loop: the worker wakes the view at each transition.
+fn outgoing_controls(
+    ui: &mut egui::Ui,
+    view: &View<'_>,
+    message: &Message,
+    actions: &mut Vec<Action>,
+) {
+    if let Some(media) = message.content.media()
+        && let MediaState::Transferring { bytes, total } = media.state
+    {
+        let label = total.filter(|total| *total > 0).map_or_else(
+            || crate::util::bytes(bytes),
+            |total| {
+                format!(
+                    "{} / {}",
+                    crate::util::bytes(bytes),
+                    crate::util::bytes(total)
+                )
+            },
+        );
+        ui.add(
+            egui::ProgressBar::new(
+                total
+                    .filter(|total| *total > 0)
+                    .map_or(0.0, |total| (bytes as f32 / total as f32).min(1.0)),
+            )
+            .text(label),
+        );
+        if ui
+            .small_button(crate::i18n::gettext(view.locale, "Cancel"))
+            .clicked()
+        {
+            actions.push(Action::CancelDownload {
+                chat: message.chat.clone(),
+                message: message.id.clone(),
+                card: None,
+            });
+        }
+    }
+
+    if !message.from_me {
+        return;
+    }
+    let locale = view.locale;
+    let (label, hint) = match message.status {
+        Delivery::Queued => (
+            crate::i18n::gettext(locale, "Waiting to send"),
+            crate::i18n::gettext(
+                locale,
+                "This message sends automatically when WhatsApp reconnects and any sending limit ends.",
+            ),
+        ),
+        Delivery::Unconfirmed => (
+            crate::i18n::gettext(locale, "Send unconfirmed"),
+            crate::i18n::gettext(
+                locale,
+                "Sending was interrupted. This message may have been sent. It will not be resent automatically. You can copy it or delete it locally.",
+            ),
+        ),
+        _ => return,
+    };
+    ui.horizontal(|ui| {
+        // Own bubbles lay out right-to-left. Add the action first so the
+        // label reads before it, without a nested layout claiming spare width.
+        if message.status == Delivery::Queued {
+            let cancel = ui.small_button(crate::i18n::gettext(locale, "Cancel").as_ref());
+            cancel.widget_info(|| {
+                egui::WidgetInfo::labeled(
+                    egui::WidgetType::Button,
+                    ui.is_enabled(),
+                    crate::i18n::gettext(locale, "Cancel waiting message").as_ref(),
+                )
+            });
+            ui.ctx().data_mut(|data| {
+                data.insert_temp(cancel_queued_id(&message.chat, &message.id), cancel.rect)
+            });
+            if cancel
+                .on_hover_text(crate::i18n::gettext(
+                    locale,
+                    "Delete this message so it is not sent",
+                ))
+                .clicked()
+            {
+                actions.push(Action::CancelQueued {
+                    chat: message.chat.clone(),
+                    id: message.id.clone(),
+                });
+            }
+        }
+        theme::text(ui, label, theme::medium(11.0), view.palette.secondary).on_hover_text(hint);
+    });
+}
+
+/// The actual cancel control's rectangle, for pointer-driven interaction tests.
+pub fn cancel_queued_id(chat: &str, message: &str) -> egui::Id {
+    egui::Id::new(("cancel-queued", chat, message))
+}
+
 fn reactions(ui: &mut egui::Ui, view: &View<'_>, message: &Message, actions: &mut Vec<Action>) {
     let palette = view.palette;
     let mut counts: Vec<(String, u32, bool, Vec<String>)> = Vec::new();
@@ -4816,83 +4938,96 @@ fn selection_menu(
 fn context_menu(ui: &mut egui::Ui, view: &View<'_>, message: &Message, actions: &mut Vec<Action>) {
     let palette = view.palette;
     let chat = &view.chat.id;
-    let mine = own_reaction(message);
-    ui.allocate_ui_with_layout(
-        vec2(ui.available_width(), 34.0),
-        Layout::left_to_right(Align::Center),
-        |ui| {
-            ui.spacing_mut().item_spacing.x = 2.0;
-            for emoji in quick_reactions(message, view.reaction_emoji) {
-                let chosen = mine == Some(emoji);
-                let line = widgets::line(ui, emoji, theme::regular(20.0), palette.text, 40.0, 1);
+    let local = message.from_me && message.status.is_local();
+    if local {
+        outgoing_controls(ui, view, message, actions);
+    }
+    if message.allows_reaction() {
+        let mine = own_reaction(message);
+        ui.allocate_ui_with_layout(
+            vec2(ui.available_width(), 34.0),
+            Layout::left_to_right(Align::Center),
+            |ui| {
+                ui.spacing_mut().item_spacing.x = 2.0;
+                for emoji in quick_reactions(message, view.reaction_emoji) {
+                    let chosen = mine == Some(emoji);
+                    let line =
+                        widgets::line(ui, emoji, theme::regular(20.0), palette.text, 40.0, 1);
+                    let (rect, response) =
+                        ui.allocate_exact_size(Vec2::splat(34.0), Sense::click());
+                    theme::focus_outline(ui, response.id, rect, 17.0);
+                    if chosen {
+                        ui.painter()
+                            .circle_filled(rect.center(), 17.0, palette.surface_active);
+                        ui.painter().circle_stroke(
+                            rect.center(),
+                            16.0,
+                            Stroke::new(1.5, palette.accent),
+                        );
+                    } else if response.hovered() {
+                        ui.painter()
+                            .circle_filled(rect.center(), 17.0, palette.surface_hover);
+                    }
+                    line.paint(ui, rect.center() - line.size() / 2.0, palette.text);
+                    let response = response.on_hover_cursor(egui::CursorIcon::PointingHand);
+                    let response = if chosen {
+                        response.on_hover_text("Remove your reaction")
+                    } else {
+                        response
+                    };
+                    if response.clicked() {
+                        // Selecting our current reaction removes it.
+                        actions.push(Action::React {
+                            chat: chat.clone(),
+                            message: message.id.clone(),
+                            emoji: reaction_choice(mine, emoji),
+                        });
+                        ui.close();
+                    }
+                }
                 let (rect, response) = ui.allocate_exact_size(Vec2::splat(34.0), Sense::click());
                 theme::focus_outline(ui, response.id, rect, 17.0);
-                if chosen {
-                    ui.painter()
-                        .circle_filled(rect.center(), 17.0, palette.surface_active);
+                if ui.is_rect_visible(rect) {
+                    let hovered = response.hovered();
+                    ui.painter().circle_filled(
+                        rect.center(),
+                        17.0,
+                        if hovered {
+                            palette.surface_hover
+                        } else {
+                            palette.surface
+                        },
+                    );
                     ui.painter().circle_stroke(
                         rect.center(),
                         16.0,
-                        Stroke::new(1.5, palette.accent),
+                        Stroke::new(1.0, palette.outline),
                     );
-                } else if response.hovered() {
-                    ui.painter()
-                        .circle_filled(rect.center(), 17.0, palette.surface_hover);
+                    theme::paint_icon(ui, Icon::Plus, rect, 16.0, palette.secondary);
                 }
-                line.paint(ui, rect.center() - line.size() / 2.0, palette.text);
-                let response = response.on_hover_cursor(egui::CursorIcon::PointingHand);
-                let response = if chosen {
-                    response.on_hover_text("Remove your reaction")
-                } else {
-                    response
-                };
-                if response.clicked() {
-                    // Selecting our current reaction removes it.
-                    actions.push(Action::React {
+                if response
+                    .on_hover_cursor(egui::CursorIcon::PointingHand)
+                    .on_hover_text("React with any emoji")
+                    .clicked()
+                {
+                    actions.push(Action::OpenReactionPicker {
                         chat: chat.clone(),
                         message: message.id.clone(),
-                        emoji: reaction_choice(mine, emoji),
+                        beside_menu: true,
                     });
-                    ui.close();
                 }
-            }
-            let (rect, response) = ui.allocate_exact_size(Vec2::splat(34.0), Sense::click());
-            theme::focus_outline(ui, response.id, rect, 17.0);
-            if ui.is_rect_visible(rect) {
-                let hovered = response.hovered();
-                ui.painter().circle_filled(
-                    rect.center(),
-                    17.0,
-                    if hovered {
-                        palette.surface_hover
-                    } else {
-                        palette.surface
-                    },
-                );
-                ui.painter()
-                    .circle_stroke(rect.center(), 16.0, Stroke::new(1.0, palette.outline));
-                theme::paint_icon(ui, Icon::Plus, rect, 16.0, palette.secondary);
-            }
-            if response
-                .on_hover_cursor(egui::CursorIcon::PointingHand)
-                .on_hover_text("React with any emoji")
-                .clicked()
-            {
-                actions.push(Action::OpenReactionPicker {
-                    chat: chat.clone(),
-                    message: message.id.clone(),
-                    beside_menu: true,
-                });
-            }
-        },
-    );
-    widgets::menu_separator(ui, &palette);
-    if !matches!(message.content, Content::Revoked)
+            },
+        );
+        widgets::menu_separator(ui, &palette);
+    }
+    if !local
+        && !matches!(message.content, Content::Revoked)
         && widgets::menu_item(ui, &palette, Some(Icon::Reply), "Reply")
     {
         actions.push(Action::Reply(message.id.clone()));
     }
-    if message.private_reply_recipient().is_some()
+    if !local
+        && message.private_reply_recipient().is_some()
         && widgets::menu_item(
             ui,
             &palette,
@@ -4905,7 +5040,8 @@ fn context_menu(ui: &mut egui::Ui, view: &View<'_>, message: &Message, actions: 
             message: message.id.clone(),
         });
     }
-    if crate::app::can_select(&message.content)
+    if !local
+        && crate::app::can_select(&message.content)
         && widgets::menu_item(ui, &palette, Some(Icon::Forward), "Forward")
     {
         actions.push(Action::ShowDialog(Dialog::Forward {
@@ -4972,8 +5108,9 @@ fn context_menu(ui: &mut egui::Ui, view: &View<'_>, message: &Message, actions: 
         actions.push(Action::CopyText(markup::plain(&text, &mentions)));
     }
     let age = view.now - message.timestamp;
-    let can_edit = message.editable_at(view.now);
-    let can_revoke = message.from_me
+    let can_edit = !local && message.editable_at(view.now);
+    let can_revoke = !local
+        && message.from_me
         && !matches!(message.content, Content::Revoked)
         && age <= crate::app::REVOKE_WINDOW.as_secs() as i64;
     if can_edit && widgets::menu_item(ui, &palette, Some(Icon::Pencil), "Edit") {
@@ -4986,7 +5123,9 @@ fn context_menu(ui: &mut egui::Ui, view: &View<'_>, message: &Message, actions: 
             for_everyone: true,
         }));
     }
-    if widgets::menu_item(ui, &palette, Some(Icon::EyeOff), "Delete for me") {
+    if (!local || message.status == Delivery::Unconfirmed)
+        && widgets::menu_item(ui, &palette, Some(Icon::EyeOff), "Delete for me")
+    {
         actions.push(Action::ShowDialog(Dialog::ConfirmDeleteMessage {
             chat: view.chat.id.clone(),
             message: message.id.clone(),
@@ -5037,8 +5176,11 @@ fn context_menu(ui: &mut egui::Ui, view: &View<'_>, message: &Message, actions: 
                     actions.push(Action::OpenFolder(folder.to_path_buf()));
                 }
             }
-            None => {
-                let downloading = matches!(media.state, MediaState::Downloading);
+            None if !local => {
+                let downloading = matches!(
+                    media.state,
+                    MediaState::Downloading | MediaState::Transferring { .. }
+                );
                 if widgets::menu_item_enabled(
                     ui,
                     &palette,
@@ -5057,6 +5199,7 @@ fn context_menu(ui: &mut egui::Ui, view: &View<'_>, message: &Message, actions: 
                     });
                 }
             }
+            None => {}
         }
     }
     if let Content::Audio { media, .. } = &message.content
@@ -5067,7 +5210,8 @@ fn context_menu(ui: &mut egui::Ui, view: &View<'_>, message: &Message, actions: 
     widgets::menu_separator(ui, &palette);
     // The menu holds actions only. Sent, delivery, and read times, per member
     // in a group, live in "Message info".
-    if has_message_info(message)
+    if !message.status.is_local()
+        && has_message_info(message)
         && widgets::menu_item(
             ui,
             &palette,
@@ -6087,10 +6231,12 @@ fn album_content(
     }
     if !missing.is_empty() {
         let downloading = missing.iter().all(|message| {
-            message
-                .content
-                .media()
-                .is_some_and(|media| matches!(media.state, MediaState::Downloading))
+            message.content.media().is_some_and(|media| {
+                matches!(
+                    media.state,
+                    MediaState::Downloading | MediaState::Transferring { .. }
+                )
+            })
         });
         if theme::pill_button(
             ui,
@@ -6106,7 +6252,10 @@ fn album_content(
         {
             for message in missing {
                 if let Some(media) = message.content.media()
-                    && !matches!(media.state, MediaState::Downloading)
+                    && !matches!(
+                        media.state,
+                        MediaState::Downloading | MediaState::Transferring { .. }
+                    )
                 {
                     actions.push(Action::Download {
                         card: None,
@@ -6140,7 +6289,9 @@ fn album_tile(
     };
     let state = match (&media.path, &media.state) {
         (Some(_), _) => "Open".to_owned(),
-        (None, MediaState::Downloading) => "Downloading".to_owned(),
+        (None, MediaState::Downloading | MediaState::Transferring { .. }) => {
+            "Downloading".to_owned()
+        }
         (None, MediaState::Failed(error)) => format!("Failed: {error}"),
         (None, MediaState::Idle) => "Download".to_owned(),
     };
@@ -6202,7 +6353,9 @@ fn album_tile(
             ui.painter()
                 .circle_filled(disc.center(), 21.0, Color32::from_black_alpha(130));
             match media.state {
-                MediaState::Downloading => theme::paint_spinner(ui, disc, 20.0, Color32::WHITE),
+                MediaState::Downloading | MediaState::Transferring { .. } => {
+                    theme::paint_spinner(ui, disc, 20.0, Color32::WHITE)
+                }
                 MediaState::Failed(_) => {
                     theme::paint_icon(ui, Icon::CircleAlert, disc, 20.0, Color32::WHITE)
                 }
@@ -6231,7 +6384,10 @@ fn album_tile(
             } else {
                 Action::OpenFile(path.clone())
             });
-        } else if !matches!(media.state, MediaState::Downloading) {
+        } else if !matches!(
+            media.state,
+            MediaState::Downloading | MediaState::Transferring { .. }
+        ) {
             actions.push(Action::Download {
                 card: None,
                 chat: message.chat.clone(),
@@ -6257,7 +6413,9 @@ fn carousel_picture(
     let label = match (&media.path, &media.state) {
         (Some(_), _) => "Open card image",
         (None, MediaState::Failed(_)) => "Retry card image download",
-        (None, MediaState::Downloading) => "Downloading card image",
+        (None, MediaState::Downloading | MediaState::Transferring { .. }) => {
+            "Downloading card image"
+        }
         (None, MediaState::Idle) => "Download card image",
     };
     response.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, true, label));
@@ -6323,7 +6481,9 @@ fn carousel_picture(
             ui.painter()
                 .circle_filled(disc.center(), 21.0, Color32::from_black_alpha(130));
             match &media.state {
-                MediaState::Downloading => theme::paint_spinner(ui, disc, 20.0, Color32::WHITE),
+                MediaState::Downloading | MediaState::Transferring { .. } => {
+                    theme::paint_spinner(ui, disc, 20.0, Color32::WHITE)
+                }
                 MediaState::Failed(_) => {
                     theme::paint_icon(ui, Icon::CircleAlert, disc, 20.0, Color32::WHITE);
                     ui.painter().text(
@@ -6357,11 +6517,13 @@ fn carousel_picture(
         if clicked {
             actions.push(Action::OpenFile(path.clone()));
         }
-    } else if !matches!(media.state, MediaState::Downloading)
-        && (clicked
-            || (visible
-                && auto_download_allowed(media, false, view.auto_download)
-                && matches!(media.state, MediaState::Idle)))
+    } else if !matches!(
+        media.state,
+        MediaState::Downloading | MediaState::Transferring { .. }
+    ) && (clicked
+        || (visible
+            && auto_download_allowed(media, false, view.auto_download)
+            && matches!(media.state, MediaState::Idle)))
     {
         actions.push(Action::Download {
             chat: message.chat.clone(),
@@ -7349,7 +7511,7 @@ fn picture(
         }
         let disc = Rect::from_center_size(rect.center(), Vec2::splat(44.0));
         match &media.state {
-            MediaState::Downloading => {
+            MediaState::Downloading | MediaState::Transferring { .. } => {
                 ui.painter()
                     .circle_filled(disc.center(), 22.0, Color32::from_black_alpha(120));
                 theme::paint_spinner(ui, disc, 22.0, Color32::WHITE);
@@ -7395,7 +7557,10 @@ fn picture(
     let wants = response
         .on_hover_cursor(egui::CursorIcon::PointingHand)
         .clicked()
-        && !matches!(media.state, MediaState::Downloading);
+        && !matches!(
+            media.state,
+            MediaState::Downloading | MediaState::Transferring { .. }
+        );
     let auto = ui.is_rect_visible(rect)
         && matches!(media.state, MediaState::Idle)
         && auto_download_allowed(media, sticker.is_some(), view.auto_download);
@@ -7462,7 +7627,7 @@ fn motion_clip(
             Some(Icon::Play)
         }
         (Some((_, animation::Frame::Pending)), _) => None,
-        (None, MediaState::Downloading) if playing => None,
+        (None, MediaState::Downloading | MediaState::Transferring { .. }) if playing => None,
         (None, MediaState::Failed(_)) => Some(Icon::CircleAlert),
         (None, _) => Some(Icon::Play),
     };
@@ -7639,7 +7804,7 @@ fn video(
                 (Some(_), _) if gif => {
                     theme::paint_icon(ui, Icon::ExternalLink, disc, 22.0, Color32::WHITE)
                 }
-                (None, MediaState::Downloading) => {
+                (None, MediaState::Downloading | MediaState::Transferring { .. }) => {
                     theme::paint_spinner(ui, disc, 24.0, Color32::WHITE)
                 }
                 (None, MediaState::Failed(_)) => {
@@ -7711,7 +7876,7 @@ fn video(
         && view.auto_download
         && media.is_within_download_limit();
     if auto {
-        actions.push(Action::Download {
+        actions.push(Action::DownloadAutomatic {
             card: None,
             chat: view.chat.id.clone(),
             message: message.id.clone(),
@@ -7754,7 +7919,12 @@ fn video_clicked(
             path: path.clone(),
         }),
         None => {
-            if !downloading && !matches!(media.state, MediaState::Downloading) {
+            if !downloading
+                && !matches!(
+                    media.state,
+                    MediaState::Downloading | MediaState::Transferring { .. }
+                )
+            {
                 actions.push(Action::Download {
                     card: None,
                     chat: view.chat.id.clone(),
@@ -8049,7 +8219,12 @@ fn video_note(
         let disc = Rect::from_center_size(center, Vec2::splat(48.0));
         let waiting = matches!(
             (&media.path, &media.state, state),
-            (Some(_), _, Some(State::Loading)) | (None, MediaState::Downloading, _)
+            (Some(_), _, Some(State::Loading))
+                | (
+                    None,
+                    MediaState::Downloading | MediaState::Transferring { .. },
+                    _
+                )
         );
         let icon = match (&media.path, &media.state, state) {
             _ if waiting => None,
@@ -8108,7 +8283,7 @@ fn video_note(
         && view.auto_download
         && media.is_within_download_limit();
     if auto {
-        actions.push(Action::Download {
+        actions.push(Action::DownloadAutomatic {
             card: None,
             chat: view.chat.id.clone(),
             message: message.id.clone(),
@@ -8181,7 +8356,7 @@ fn attachment(
                 (Some(_), _) => {
                     theme::icon(ui, Icon::ExternalLink, 18.0, palette.secondary);
                 }
-                (None, MediaState::Downloading) => {
+                (None, MediaState::Downloading | MediaState::Transferring { .. }) => {
                     theme::spinner(ui, 18.0, palette.accent);
                 }
                 (None, _) => {
@@ -8219,7 +8394,7 @@ fn attachment(
         && view.auto_download
         && media.is_within_download_limit();
     if auto {
-        actions.push(Action::Download {
+        actions.push(Action::DownloadAutomatic {
             card: None,
             chat: view.chat.id.clone(),
             message: message.id.clone(),
@@ -8248,7 +8423,11 @@ fn attachment(
     if response.clicked() && !auto {
         match &media.path {
             Some(path) => actions.push(Action::OpenFile(path.clone())),
-            None if !matches!(media.state, MediaState::Downloading) => {
+            None if !matches!(
+                media.state,
+                MediaState::Downloading | MediaState::Transferring { .. }
+            ) =>
+            {
                 actions.push(Action::Download {
                     card: None,
                     chat: view.chat.id.clone(),
@@ -8321,7 +8500,7 @@ fn voice_player(
         |ui| {
             ui.spacing_mut().item_spacing.x = 10.0;
             match (&media.path, &media.state) {
-                (None, MediaState::Downloading) => waiting(ui),
+                (None, MediaState::Downloading | MediaState::Transferring { .. }) => waiting(ui),
                 (None, _) => {
                     if theme::circle_button(
                         ui,
@@ -8527,7 +8706,7 @@ fn voice_player(
         && view.auto_download
         && media.is_within_download_limit();
     if auto {
-        actions.push(Action::Download {
+        actions.push(Action::DownloadAutomatic {
             card: None,
             chat: view.chat.id.clone(),
             message: message.id.clone(),
@@ -8703,6 +8882,8 @@ pub fn has_messages(conversation: &Conversation) -> bool {
 fn status_label(status: Delivery) -> &'static str {
     match status {
         Delivery::None => "",
+        Delivery::Queued => "waiting to send",
+        Delivery::Unconfirmed => "send unconfirmed",
         Delivery::Pending => "sending",
         Delivery::Sent => "sent",
         Delivery::Delivered => "delivered",

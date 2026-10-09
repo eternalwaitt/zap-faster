@@ -358,6 +358,10 @@ pub enum Delivery {
     /// Incoming message without outgoing receipts.
     #[default]
     None,
+    /// Waiting for a rate-limit cooldown to end; cancellation is still safe.
+    Queued,
+    /// No worker owns this interrupted send; it may have been transmitted.
+    Unconfirmed,
     /// Sent to the backend but not acknowledged by the server.
     Pending,
     Sent,
@@ -365,6 +369,14 @@ pub enum Delivery {
     Read,
     Played,
     Failed,
+}
+
+impl Delivery {
+    /// These rows have no confirmed successful send. They cannot be edited,
+    /// revoked, quoted, or forwarded as already-sent messages.
+    pub fn is_local(self) -> bool {
+        matches!(self, Self::Queued | Self::Pending | Self::Unconfirmed)
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -427,7 +439,8 @@ impl Message {
     pub fn editable_at(&self, now: i64) -> bool {
         self.from_me
             && matches!(self.content, Content::Text { .. })
-            && !matches!(self.status, Delivery::Pending | Delivery::Failed)
+            && !self.status.is_local()
+            && self.status != Delivery::Failed
             && now
                 .checked_sub(self.timestamp)
                 .is_some_and(|age| (0..=EDIT_WINDOW.as_secs() as i64).contains(&age))
@@ -443,9 +456,21 @@ impl Message {
             }))
         .then_some(self.sender.as_str())
     }
+    /// Reactions require an outgoing message that has not failed or lost its
+    /// send ownership. Other failed-message actions remain unchanged.
+    pub fn allows_reaction(&self) -> bool {
+        !(self.from_me && (self.status.is_local() || self.status == Delivery::Failed))
+    }
+
     /// One-line summary used in chat rows and quotes.
     pub fn summary(&self) -> String {
         self.content.summary()
+    }
+
+    /// Our message waiting for a rate-limit cooldown. It is the chat's
+    /// newest, whatever arrives meanwhile, and goes out at its dispatch time.
+    pub fn waiting_to_send(&self) -> bool {
+        self.from_me && self.status == Delivery::Queued
     }
 
     /// The line of this message that contains `query`, for a search result's
@@ -988,6 +1013,8 @@ fn with_caption(label: &str, caption: &Option<String>) -> String {
 
 /// Maximum size accepted for a downloaded attachment.
 pub(crate) const ATTACHMENT_DOWNLOAD_LIMIT: u64 = 64 * 1024 * 1024;
+/// Explicit downloads stream to disk with a separate 2 GiB cap.
+pub(crate) const MANUAL_DOWNLOAD_LIMIT: u64 = 2 * 1024 * 1024 * 1024;
 
 /// Attachment metadata, download state, and optional local file. Download keys
 /// remain in the archive's raw message.
@@ -1071,6 +1098,10 @@ pub enum MediaState {
     #[default]
     Idle,
     Downloading,
+    Transferring {
+        bytes: u64,
+        total: Option<u64>,
+    },
     Failed(String),
 }
 
@@ -1713,6 +1744,10 @@ pub struct ComposerMention {
 /// Actions queued by views and applied after drawing.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Action {
+    CancelQueued {
+        chat: ChatId,
+        id: String,
+    },
     Open(Page),
     /// Opens settings, or closes them when they are already showing.
     ToggleSettings,
@@ -1794,6 +1829,17 @@ pub enum Action {
     /// Requests messages older than the local archive, for the reader.
     FetchOlder(ChatId),
     ReloadHistory {
+        chat: ChatId,
+        message: String,
+    },
+    DownloadAutomatic {
+        card: Option<usize>,
+        chat: ChatId,
+        message: String,
+    },
+    CancelUpload(u64),
+    CancelDownload {
+        card: Option<usize>,
         chat: ChatId,
         message: String,
     },

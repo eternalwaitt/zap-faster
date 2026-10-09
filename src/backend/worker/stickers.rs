@@ -1078,6 +1078,7 @@ impl Worker {
             match outcome {
                 Ok((row, raw)) => {
                     let _ = commands.send(Command::Outbound {
+                        upload: None,
                         chat,
                         row: Box::new(row),
                         raw,

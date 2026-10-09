@@ -97,6 +97,20 @@ Availability depends on what the phone sends; messages deleted for you stay
 deleted. This action does not require unlinking your account or clearing the
 archive.
 
+## Sending while reconnecting
+
+Locally prepared messages wait in account order while WhatsApp reconnects or
+returns a sending limit. **Waiting to send** offers cancellation. Prepared
+waiting messages survive a restart in that account's encrypted archive. A later
+text cannot overtake an attachment already being prepared. Reconnecting does not
+cancel an unclaimed prepared message.
+
+Once transmission starts, a timeout or interrupted connection can leave delivery
+uncertain. **Send unconfirmed** means the message may have reached WhatsApp; Zap
+Faster never resends it automatically. Later receipts still update its status.
+Copy or delete it locally after checking whether it arrived. Sends are retried
+only after a known pre-transmission refusal, never from an error's text.
+
 ## Selecting messages
 
 Choose **Select messages** in the chat's menu (the three dots at the top),
@@ -208,11 +222,16 @@ picture beside its other media and sends that one. Opening the cropper again
 starts from your original with the crop you chose, so you can widen it back out
 without a second pass over the picture.
 
-Incoming attachments up to 64 MiB download when they enter view if automatic
-downloads are on, or on click. Visible stickers download automatically even
-when that setting is off. The 64 MiB limit applies to both automatic and manual
-downloads, including videos and stickers; clicking a larger attachment does
-not bypass it. If an attachment has expired, Zap Faster asks your phone to upload
+Automatic downloads keep the 64 MiB limit. Visible stickers download
+again when automatic downloads are off, within that same safe limit. Clicking
+**Download** explicitly allows attachments up to 2 GiB, including documents and
+videos. Downloads stream to a temporary file with at most two active transfers;
+verified files enter the cache only after the protocol library checks their
+integrity. Transfer progress and cancellation appear beside the attachment.
+Cancelled, failed, oversized, or timed-out transfers discard their partial file.
+Attachment preparation and uploads run in selection order, with progress and
+cancellation above the composer. Upload progress counts encrypted transfer bytes.
+Unfinished attachment preparation is not recovered after closing the app. If an attachment has expired, Zap Faster asks your phone to upload
 it again. A live-location share shows the position this linked device received;
 WhatsApp sends later positions only to the phone. Zap Faster marks when newer
 positions are available there, but cannot follow the moving location here.
@@ -583,3 +602,9 @@ open it. In a group, a mention of you or a reply to you always notifies.
 
 Press `Ctrl+/` or click the keyboard button under the composer to list all
 shortcuts.
+
+Notification sounds, voice playback and video playback use the system's current
+default audio output. Zap Faster does not fall back to an unrelated output when
+that device cannot open. Active playback checks for default-device changes and
+stream errors; it reopens at the current position or pauses with an error. Routing
+on other platforms and physical device changes still need attended testing.
