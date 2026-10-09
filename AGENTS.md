@@ -195,8 +195,9 @@ protocol. These notes are for coding agents and new contributors.
   is not used for it: it refuses WhatsApp's videos, whose `esds` carries a
   custom SLConfigDescriptor (#265). Unsupported formats
   go to the system player. Playback reads a downloaded local file; the shared
-  64 MiB attachment download limit applies to automatic and manual downloads,
-  not to the video decoder. `Action::PlayVideo/SeekVideo/ToggleVideoSound` drive
+  64 MiB attachment download limit applies to automatic downloads; explicit
+  downloads allow up to 2 GiB. These limits are separate from the video decoder.
+  `Action::PlayVideo/SeekVideo/ToggleVideoSound` drive
   it; leaving the chat stops it and an unseen video pauses. Round video
   messages (PTV) are `Content::Video { note: true }` and draw as circles.
   `Action::CycleVideoSpeed` (the chip, or S full-window) runs the `Clock` at
@@ -428,7 +429,8 @@ contain no merge commits. Rewriting published history requires explicit
 maintainer approval, an exact force-with-lease guard, and a recovery ref.
 
 Every normal release, including a release candidate or other prerelease, must
-tag a commit already pushed to and reachable from `origin/main`. A release
+tag a commit already pushed to and reachable from the release repository's main
+(`fork/main` when `origin` names upstream in a shared checkout). A release
 branch is allowed only for an explicitly requested backport to an older
 supported line. Prefer fixing forward on `main`; do not create backport or
 release branches speculatively.
@@ -466,7 +468,7 @@ A release is not finished when the tag is pushed. Do these in order:
    screenshots at the release's asset URLs
    (`https://github.com/eternalwaitt/zap-faster/releases/download/vX.Y.Z/NAME.png`).
    Run the full checks, commit, and push `main`. Before tagging, verify the
-   release commit is reachable from `origin/main` so the binaries report the
+   release commit is reachable from the fork's public main so the binaries report the
    right version and the release contains the canonical history.
 2. Tag `vX.Y.Z` and push the tag. Wait for every platform build, artifact,
    and `checksums.txt`.
@@ -478,7 +480,7 @@ A release is not finished when the tag is pushed. Do these in order:
    The menu lists only the current version, which points to `/download/`,
    and the Changelog link; do not add older versions to it. Never point the
    download page at files that do not exist yet. Set `release_asset_prefix` to
-   `zapfast` and `release_app_name` to `Zap Faster` only once those assets exist.
+   `zap-faster` and `release_app_name` to `Zap Faster` only once those assets exist.
 5. Update the AUR packages from the templates in `packaging/arch/`. The shared
    packaging workflow generates versions, hashes and `.SRCINFO` after the
    release exists, and publishes when `PUBLISH_AUR` and the required secrets

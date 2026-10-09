@@ -25,7 +25,7 @@ ZAPFAST_GIPHY_KEY=your-key cargo build --release
 The earlier `FASTSAPP_GIPHY_KEY` build variable remains supported as a fallback.
 
 CI checks the complete lockfile against RustSec advisories with `cargo audit`.
-Candidate-specific manual checks and results are tracked in the release PR.
+Candidate-specific manual checks and limits are recorded in the release notes.
 
 ## Recording a demo
 
@@ -88,6 +88,10 @@ palettes without changing the desktop theme.
 
 Use `--demo-page preview` for a photo viewer with three pictures, text between
 the second and third picture, and previous/next controls.
+Use `gallery`, `gallery-docs` and `gallery-links` for the archive-gallery layouts;
+`viewer-missing`, `viewer-progress` and `viewer-video` for viewer transfer and
+playback states; and `transfer-progress` or `queued-messages` for cancellable
+transfers and waiting sends. These pages use offline synthetic fixtures only.
 Use `--demo-page shared-contact` for an offline shared-contact card with synthetic
 vCard data, or `--demo-page interactive` for text and button messages, or
 `--demo-page interactive-media` for messages with an image, and

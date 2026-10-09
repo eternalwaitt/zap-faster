@@ -114,7 +114,9 @@ name or description, in the interface language or in English.
   the next launch after you turn this back on.
 - **Download files automatically**: attachments up to 64 MiB download as they
   come into view. When off, click one to download it. Visible stickers still
-  download automatically. The same 64 MiB limit applies to manual downloads.
+  download automatically. Explicit downloads allow up to 2 GiB, with progress
+  and cancellation. Images above 64 MiB can be saved and opened externally;
+  in-app previews and clipboard decoding remain bounded.
 - **Keep chats archived** (development builds): on by default. When off, a new
   message, received or sent, brings an archived chat back to the list. Applies
   to all accounts here; it does not read or change the phone's own setting.
