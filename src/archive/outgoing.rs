@@ -63,11 +63,11 @@ impl Archive {
         )
     }
     /// Claim persists before spawning. A crash after this point is uncertain.
-    pub(crate) fn claim_send(&self, chat: &str, id: &str) -> Result<()> {
+    pub(crate) fn claim_send(&self, chat: &str, id: &str, owner: &str) -> Result<()> {
         let changed = self.connection.execute(
-            "UPDATE outgoing_queue SET phase=1 WHERE chat=?1 AND id=?2 AND phase=0
+            "UPDATE outgoing_queue SET phase=1 WHERE chat=?1 AND id=?2 AND phase=0 AND owner=?3
              AND EXISTS(SELECT 1 FROM messages WHERE chat=?1 AND id=?2 AND from_me=1 AND status IN(-1,1))",
-            params![chat, id],
+            params![chat, id, owner],
         )?;
         if changed != 1 {
             return Err(rusqlite::Error::QueryReturnedNoRows);
@@ -153,7 +153,7 @@ mod tests {
                     .set_outgoing_state("fixture", id, Delivery::Queued)
                     .unwrap();
             }
-            archive.claim_send("fixture", "claimed").unwrap();
+            archive.claim_send("fixture", "claimed", "me").unwrap();
             archive.end_send("fixture", "cancelled").unwrap();
             archive.defer_send("fixture", "first", 1234).unwrap();
         }

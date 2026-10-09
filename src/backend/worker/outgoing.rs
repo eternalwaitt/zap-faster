@@ -229,7 +229,11 @@ impl Worker {
             self.emit(Event::SendFailed { connection: false });
             return;
         }
-        if (!self.link_up() || self.outgoing.must_wait(now)) && !self.mark_waiting(&mut job) {
+        if (!self.link_up()
+            || self.outgoing.must_wait(now)
+            || self.upload_order.values().any(|order| *order < job.order))
+            && !self.mark_waiting(&mut job)
+        {
             self.finish_interactive(&job.chat, &job.id);
             return;
         }
@@ -361,7 +365,7 @@ impl Worker {
             ));
             return self.pump_outgoing_at(now);
         }
-        if let Err(error) = self.archive.claim_send(&job.chat, &job.id) {
+        if let Err(error) = self.archive.claim_send(&job.chat, &job.id, &self.me()) {
             log::warn!("could not claim a send: {error}");
             self.finish_outgoing(&job, Delivery::Failed);
             return self.pump_outgoing_at(now);
@@ -491,7 +495,7 @@ impl Worker {
                 );
                 let uncertain = matches!(
                     kind,
-                    "iq timeout" | "iq disconnected" | "client" | "internal" | "unknown"
+                    "iq timeout" | "iq disconnected" | "iq" | "client" | "internal" | "unknown"
                 );
                 self.finish_outgoing(
                     &job,
@@ -745,6 +749,29 @@ mod tests {
                 result,
             })
             .await;
+    }
+
+    #[tokio::test]
+    async fn later_text_waits_for_attachment_preparation_and_cancellation_releases_it() {
+        let (mut worker, events, _, _) = worker();
+        let _directory = attach_offline_client(&mut worker).await;
+        worker.outgoing.synthetic = Some(Vec::new());
+        let order = worker.reserve_send_order().unwrap();
+        worker.upload_order.insert(55, order);
+        send_text(&mut worker, "Later text").await;
+        assert!(worker.outgoing.running.is_none());
+        let rows = visible_rows(&mut worker, &events).await;
+        assert_eq!(rows[0].status, Delivery::Queued);
+        worker
+            .handle_command(Command::UploadFinished {
+                token: 55,
+                failed: false,
+            })
+            .await;
+        assert_eq!(
+            worker.outgoing.running.as_ref().map(|job| job.id.as_str()),
+            Some(rows[0].id.as_str())
+        );
     }
 
     #[tokio::test]
