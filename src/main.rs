@@ -20,8 +20,8 @@ struct Cli {
     #[arg(long)]
     start_hidden: bool,
 
-    /// Open a WhatsApp chat link, preparing its text without sending it.
-    #[arg(value_name = "WHATSAPP_URL", conflicts_with = "start_hidden")]
+    /// Open an international number or WhatsApp chat link, without sending its text.
+    #[arg(value_name = "CHAT", conflicts_with = "start_hidden")]
     whatsapp_url: Option<String>,
 
     /// Start with offline sample chats.
@@ -718,6 +718,17 @@ mod chat_link_cli_tests {
         assert!(matches!(cli.command, Some(Control::ReloadThemes)));
         assert!(cli.whatsapp_url.is_none());
         assert!(Cli::try_parse_from(["zapfast", "--start-hidden", uri]).is_err());
+        for target in [
+            "15550100123",
+            "+1 (555) 010-0123",
+            "https://wa.me/15550100123",
+        ] {
+            let cli = Cli::try_parse_from(["zap-faster", target]).unwrap();
+            assert!(cli.command.is_none());
+            assert!(
+                zapfast::chat_link::ChatLink::parse(cli.whatsapp_url.as_deref().unwrap()).is_ok()
+            );
+        }
     }
 }
 

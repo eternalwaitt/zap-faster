@@ -537,7 +537,7 @@ Description editing still requires your phone.
 
 ## Browser chat links
 
-**Development builds** can open `whatsapp://send` links from a browser or
+Zap Faster can open `whatsapp://send` links from a browser or
 another application. The link opens its recipient on the active WhatsApp
 account and puts any `text=` message in the composer as an unsent draft.
 An existing draft is kept, with the link's text appended on a new line.
@@ -545,13 +545,24 @@ An existing draft is kept, with the link's text appended on a new line.
 On Linux, choose Zap Faster as the handler after installing it:
 
 ```sh
-xdg-mime default zapfast.desktop x-scheme-handler/whatsapp
+xdg-mime default zap-faster.desktop x-scheme-handler/whatsapp
 xdg-open 'whatsapp://send?phone=15550100123&text=Hello%20from%20a%20link'
 ```
 
 Use the full international phone number, including the country code. Text
 is URL-decoded, including accents, emoji, and line breaks. You can also pass
-the same link directly to `zapfast` on the command line.
+the same link, a `wa.me` or `api.whatsapp.com/send` web link, or a number
+directly to `zap-faster` on the command line:
+
+```sh
+zap-faster '+1 (555) 010-0123'
+zap-faster 'https://wa.me/15550100123?text=Hello%20from%20a%20link'
+```
+
+Numbers must contain 6 to 15 digits, including the country code. Spaces,
+parentheses, dots and hyphens are accepted as formatting. Web links opened
+in a browser still go to the browser; pass them to `zap-faster` to open
+them here. Only recognized WhatsApp hosts and send paths are accepted.
 
 If Zap Faster is already running, the link goes to that copy and brings its
 window forward. It waits for the account's archive to load and for the app

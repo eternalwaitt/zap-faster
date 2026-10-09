@@ -1,4 +1,4 @@
-//! WhatsApp click-to-chat links. Opening one prepares a draft, never a send.
+//! WhatsApp click-to-chat links and launch numbers. Opening one prepares a draft, never a send.
 
 /// A validated recipient and optional URL-decoded draft.
 #[derive(Clone, PartialEq, Eq)]
@@ -16,20 +16,39 @@ impl std::fmt::Debug for ChatLink {
 
 impl ChatLink {
     pub fn parse(value: &str) -> Result<Self, &'static str> {
-        let url = reqwest::Url::parse(value).map_err(|_| "Invalid WhatsApp chat link")?;
+        let value = value.trim();
+        if !value.contains([':', '/']) {
+            return Self::validated(value, None);
+        }
+        let value = if value.starts_with("wa.me/") {
+            format!("https://{value}")
+        } else {
+            value.to_owned()
+        };
+        let url = reqwest::Url::parse(&value).map_err(|_| "Invalid WhatsApp chat link")?;
         let send = match url.host_str() {
             Some(host) => host.eq_ignore_ascii_case("send") && matches!(url.path(), "" | "/"),
             None => url.path() == "send",
         };
-        if url.scheme() != "whatsapp"
-            || !send
-            || !url.username().is_empty()
-            || url.password().is_some()
-            || url.port().is_some()
-            || url.fragment().is_some()
-        {
-            return Err("Only whatsapp://send chat links are supported");
+        if !url.username().is_empty() || url.password().is_some() || url.port().is_some() {
+            return Err("Invalid WhatsApp chat link");
         }
+        let path_phone = match (url.scheme(), url.host_str()) {
+            ("whatsapp", _) if send && url.fragment().is_none() => None,
+            ("http" | "https", Some("wa.me" | "www.wa.me")) => {
+                let path = url.path().trim_start_matches('/').trim_end_matches('/');
+                if path.is_empty() || path.contains('/') {
+                    return Err("The WhatsApp chat link needs an international phone number");
+                }
+                Some(path)
+            }
+            ("http" | "https", Some("api.whatsapp.com" | "web.whatsapp.com"))
+                if matches!(url.path(), "/send" | "/send/") =>
+            {
+                None
+            }
+            _ => return Err("Unsupported WhatsApp chat link"),
+        };
         let mut phone = None;
         let mut text = None;
         for (key, value) in url.query_pairs() {
@@ -40,19 +59,34 @@ impl ChatLink {
                 _ => {}
             }
         }
-        let phone = phone.ok_or("The WhatsApp chat link needs an international phone number")?;
+        // A wa.me path names its recipient. A conflicting query must not quietly
+        // open another chat, and query digits must never join the path's number.
+        let phone = if let Some(path) = path_phone {
+            let path = Self::validated(path, None)?;
+            if let Some(query) = phone
+                && Self::validated(&query, None)?.phone != path.phone
+            {
+                return Err("Ambiguous WhatsApp chat link");
+            }
+            path.phone
+        } else {
+            phone.ok_or("The WhatsApp chat link needs an international phone number")?
+        };
+        Self::validated(&phone, text)
+    }
+
+    fn validated(phone: &str, text: Option<String>) -> Result<Self, &'static str> {
         let phone = phone.trim().trim_start_matches('+');
-        if phone.is_empty()
-            || phone.len() > 15
-            || phone.starts_with('0')
-            || !phone.bytes().all(|byte| byte.is_ascii_digit())
-        {
+        if !phone.chars().all(|character| {
+            character.is_ascii_digit() || matches!(character, ' ' | '-' | '(' | ')' | '.')
+        }) {
             return Err("The WhatsApp chat link needs an international phone number");
         }
-        let link = Self {
-            phone: phone.to_owned(),
-            text,
-        };
+        let phone: String = phone.chars().filter(char::is_ascii_digit).collect();
+        if !(6..=15).contains(&phone.len()) || phone.starts_with('0') {
+            return Err("The WhatsApp chat link needs an international phone number");
+        }
+        let link = Self { phone, text };
         // fastframe-instance accepts a 16 KiB line, including its prefix and
         // the Windows token. Leave room for those instead of losing a draft
         // only when Zap Faster was already running.
@@ -146,5 +180,48 @@ mod tests {
             "a".repeat(16 * 1024)
         );
         assert!(ChatLink::parse(&link).is_err());
+    }
+
+    #[test]
+    fn launch_numbers_and_web_links_use_the_existing_private_handoff() {
+        for value in [
+            "15550100123",
+            "+1 (555) 010-0123",
+            "https://wa.me/15550100123",
+            "http://www.wa.me/15550100123/",
+            "wa.me/15550100123",
+            "https://api.whatsapp.com/send?phone=15550100123",
+            "https://web.whatsapp.com/send?phone=%2B15550100123",
+        ] {
+            let link = ChatLink::parse(value).unwrap();
+            assert_eq!(link.chat_id(), "15550100123@s.whatsapp.net", "{value}");
+            assert_eq!(
+                ChatLink::parse(link.request().strip_prefix("open-link ").unwrap()).unwrap(),
+                link,
+            );
+        }
+        let link =
+            ChatLink::parse("https://wa.me/15550100123?text=Hello+%23team%0A%F0%9F%98%8A#section")
+                .unwrap();
+        assert_eq!(link.text.as_deref(), Some("Hello #team\n😊"));
+    }
+
+    #[test]
+    fn web_targets_cannot_substitute_or_invent_a_recipient() {
+        for value in [
+            "https://wa.me/2012?text=999999",
+            "https://wa.me/?phone=15550100123",
+            "https://wa.me/15550100123?phone=15550100124",
+            "https://wa.me/15550100123?text=one&text=two",
+            "https://wa.me/extra/15550100123",
+            "https://wa.me@evil.test/15550100123",
+            "https://api.whatsapp.com/other?phone=15550100123",
+            "https://example.com/?phone=15550100123",
+            "call 15550100123",
+            "15550100123 please",
+            "2026",
+        ] {
+            assert!(ChatLink::parse(value).is_err(), "{value}");
+        }
     }
 }
