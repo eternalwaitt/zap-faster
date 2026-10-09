@@ -274,10 +274,27 @@ jobs:
     environment: release-signing
     permissions:
       contents: write
+      actions: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
+      - name: Require successful CI for the release commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for attempt in $(seq 1 180); do
+            state=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$GITHUB_SHA&event=push&branch=main&per_page=10" \
+              --jq '.workflow_runs[0] | if . == null then "missing" else .status + ":" + (.conclusion // "") end')
+            echo "CI for $GITHUB_SHA: $state"
+            case "$state" in
+              completed:success) exit 0 ;;
+              completed:*) echo "Release source CI did not pass." >&2; exit 1 ;;
+            esac
+            sleep 30
+          done
+          echo "Timed out waiting for release source CI." >&2
+          exit 1
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
           path: dist
