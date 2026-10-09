@@ -14,7 +14,7 @@ The original project and its contributors made this possible. This fork preserve
 
 Download installers and portable builds from **[ZapFaster releases](https://github.com/eternalwaitt/zap-faster/releases)**. Upstream ZapFast installers, its Homebrew tap, AUR packages and website downloads install the original project.
 
-The first fork release is being verified. Until a release is published, build from source with the toolchain in `rust-toolchain.toml`:
+The first fork release, [v0.20.0](https://github.com/eternalwaitt/zap-faster/releases/tag/v0.20.0), is available for Windows, Linux and macOS. To build from source, use the toolchain in `rust-toolchain.toml`:
 
 ```sh
 git clone https://github.com/eternalwaitt/zap-faster.git
