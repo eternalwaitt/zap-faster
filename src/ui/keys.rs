@@ -163,6 +163,10 @@ pub fn handle(app: &mut App, ctx: &egui::Context) {
         } else if app.dialog.is_some() && app.group_name_edit.is_some() {
             // Cancels the group rename and keeps the dialog open.
             actions.push(Action::CloseGroupName);
+        } else if matches!(app.dialog, Some(crate::model::Dialog::ChatInfo(_)))
+            && app.gallery.tab.is_some()
+        {
+            actions.push(Action::GalleryTab(None));
         } else if app.dialog.is_some() {
             actions.push(Action::CloseDialog);
         } else if app.recording.is_some() {

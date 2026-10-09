@@ -148,6 +148,7 @@ pub fn anchored_offset(
 #[derive(Clone, Debug, PartialEq)]
 pub struct PreviewState {
     path: PathBuf,
+    message: Option<String>,
     chat: Option<String>,
     cursor: Option<Cursor>,
     zoom: f32,
@@ -166,12 +167,23 @@ impl PreviewState {
     pub fn new(path: PathBuf) -> Self {
         Self {
             path,
+            message: None,
             chat: None,
             cursor: None,
             zoom: 1.0,
             fit: true,
             fit_scale: 1.0,
         }
+    }
+
+    pub fn message(&self) -> Option<&str> {
+        self.message.as_deref()
+    }
+    pub fn select_message(&mut self, message: String, path: Option<PathBuf>) {
+        self.message = Some(message);
+        self.path = path.unwrap_or_default();
+        self.cursor = None;
+        self.fit();
     }
 
     /// Local file currently displayed by the preview.

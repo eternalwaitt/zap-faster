@@ -31,7 +31,8 @@ ZapFast provides the native foundation. ZapFaster builds on it with its own prod
 The following improvements are integrated into this fork's source, relative to the ZapFast baseline it started from. Some come from original ZapFast contributors; others were developed by this fork's maintainer. Both projects continue to evolve, so this is not a live comparison with upstream's latest version. Availability in a download depends on its release.
 
 - More reliable text selection, screenshot pasting and scrolling; Windows attachment dragging.
-- Media albums, attachment drafts tied to their chat, crop/rotate before sending, and image navigation.
+- Media albums, attachment drafts tied to their chat, crop/rotate before sending, and an archive-backed gallery and media viewer.
+- Durable waiting sends, conservative recovery after reconnects, and cancellable attachment transfers with progress.
 - Private group replies, multi-recipient forwarding, batch deletion and safer failed edits.
 - Unsent drafts at the top of the chat list and an option to keep the list position after sending.
 - Audio files distinct from voice notes, AAC video sound, playback speeds and motion photos.

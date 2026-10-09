@@ -5036,6 +5036,19 @@ fn context_menu(ui: &mut egui::Ui, view: &View<'_>, message: &Message, actions: 
         );
         widgets::menu_separator(ui, &palette);
     }
+    if matches!(message.content, Content::Video { .. })
+        && widgets::menu_item(
+            ui,
+            &palette,
+            Some(Icon::Video),
+            crate::i18n::gettext(view.locale, "Open in the viewer").as_ref(),
+        )
+    {
+        actions.push(Action::PreviewMedia {
+            chat: message.chat.clone(),
+            message: message.id.clone(),
+        });
+    }
     if !local
         && !matches!(message.content, Content::Revoked)
         && widgets::menu_item(ui, &palette, Some(Icon::Reply), "Reply")

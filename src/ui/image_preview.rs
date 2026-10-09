@@ -11,6 +11,14 @@ pub fn show(app: &mut App, ctx: &egui::Context) {
         return;
     };
     let palette = app.palette;
+    let selected = preview
+        .chat()
+        .and_then(|chat| app.conversations.get(chat))
+        .and_then(|c| preview.message().and_then(|id| c.message(id)))
+        .cloned();
+    let is_video = selected
+        .as_ref()
+        .is_some_and(|row| matches!(row.content, Content::Video { .. }));
     // The motion photo this picture belongs to, when it is one.
     let motion = app.open_chat.as_ref().and_then(|chat| {
         let messages = &app.conversations.get(chat)?.messages;
@@ -36,8 +44,8 @@ pub fn show(app: &mut App, ctx: &egui::Context) {
         .frame(frame)
         .backdrop_color(palette.shadow)
         .show(ctx, |ui| {
-            ui.set_width((viewport.x * 0.9).clamp(viewport.x.min(320.0), 1200.0));
-            ui.set_height((viewport.y * 0.88).clamp(viewport.y.min(260.0), 900.0));
+            ui.set_width((viewport.x - 56.0).max(180.0));
+            ui.set_height((viewport.y - 56.0).max(180.0));
             ui.horizontal(|ui| {
                 let name = preview
                     .path()
@@ -72,107 +80,111 @@ pub fn show(app: &mut App, ctx: &egui::Context) {
                         app.actions
                             .push(Action::OpenFile(preview.path().to_owned()));
                     }
-                    let copy_hint = format!(
-                        "{} ({})",
-                        crate::i18n::gettext(app.locale, "Copy image"),
-                        super::keys::label("Ctrl+C"),
-                    );
-                    if theme::icon_button(
-                        ui,
-                        Icon::Copy,
-                        18.0,
-                        palette.secondary,
-                        palette.text,
-                        &copy_hint,
-                    )
-                    .clicked()
-                    {
-                        app.actions
-                            .push(Action::CopyImage(preview.path().to_owned()));
-                    }
-                    if let Some((chat, message, motion)) = &motion {
-                        // A failed download says why, and a click tries again.
-                        let (icon, hint) = match &motion.state {
-                            MediaState::Failed(error) => (Icon::CircleAlert, error.as_str()),
-                            _ => (Icon::Play, "Play motion photo"),
-                        };
-                        if matches!(motion.state, MediaState::Downloading) {
-                            let (rect, _) =
-                                ui.allocate_exact_size(Vec2::splat(26.0), egui::Sense::hover());
-                            theme::paint_spinner(ui, rect, 18.0, palette.secondary);
-                        } else if theme::icon_button(
+                    if !is_video {
+                        let copy_hint = format!(
+                            "{} ({})",
+                            crate::i18n::gettext(app.locale, "Copy image"),
+                            super::keys::label("Ctrl+C"),
+                        );
+                        if theme::icon_button(
                             ui,
-                            icon,
+                            Icon::Copy,
                             18.0,
                             palette.secondary,
                             palette.text,
-                            hint,
+                            &copy_hint,
+                        )
+                        .clicked()
+                            && !is_video
+                            && preview.path().is_file()
+                        {
+                            app.actions
+                                .push(Action::CopyImage(preview.path().to_owned()));
+                        }
+                        if let Some((chat, message, motion)) = &motion {
+                            // A failed download says why, and a click tries again.
+                            let (icon, hint) = match &motion.state {
+                                MediaState::Failed(error) => (Icon::CircleAlert, error.as_str()),
+                                _ => (Icon::Play, "Play motion photo"),
+                            };
+                            if matches!(motion.state, MediaState::Downloading) {
+                                let (rect, _) =
+                                    ui.allocate_exact_size(Vec2::splat(26.0), egui::Sense::hover());
+                                theme::paint_spinner(ui, rect, 18.0, palette.secondary);
+                            } else if theme::icon_button(
+                                ui,
+                                icon,
+                                18.0,
+                                palette.secondary,
+                                palette.text,
+                                hint,
+                            )
+                            .clicked()
+                            {
+                                match &motion.path {
+                                    Some(path) => {
+                                        app.actions.push(Action::CloseImagePreview);
+                                        app.actions.push(Action::ExpandVideo {
+                                            message: message.clone(),
+                                            path: path.clone(),
+                                        });
+                                    }
+                                    None => app.actions.push(Action::DownloadMotion {
+                                        chat: chat.clone(),
+                                        message: message.clone(),
+                                    }),
+                                }
+                            }
+                        }
+                        ui.add_space(8.0);
+                        // Right to left: zoom in, the current scale, zoom out.
+                        if theme::icon_button(
+                            ui,
+                            Icon::Plus,
+                            18.0,
+                            palette.secondary,
+                            palette.text,
+                            "Zoom in",
                         )
                         .clicked()
                         {
-                            match &motion.path {
-                                Some(path) => {
-                                    app.actions.push(Action::CloseImagePreview);
-                                    app.actions.push(Action::ExpandVideo {
-                                        message: message.clone(),
-                                        path: path.clone(),
-                                    });
-                                }
-                                None => app.actions.push(Action::DownloadMotion {
-                                    chat: chat.clone(),
-                                    message: message.clone(),
-                                }),
-                            }
+                            app.actions.push(Action::ZoomImageIn);
                         }
-                    }
-                    ui.add_space(8.0);
-                    // Right to left: zoom in, the current scale, zoom out.
-                    if theme::icon_button(
-                        ui,
-                        Icon::Plus,
-                        18.0,
-                        palette.secondary,
-                        palette.text,
-                        "Zoom in",
-                    )
-                    .clicked()
-                    {
-                        app.actions.push(Action::ZoomImageIn);
-                    }
-                    // One control shows the scale and switches between fitting
-                    // the window and the original size.
-                    let (label, hint, action) = if preview.is_fit() {
-                        (
-                            "Fit".to_owned(),
-                            "Show at original size",
-                            Action::ImageActualSize,
+                        // One control shows the scale and switches between fitting
+                        // the window and the original size.
+                        let (label, hint, action) = if preview.is_fit() {
+                            (
+                                "Fit".to_owned(),
+                                "Show at original size",
+                                Action::ImageActualSize,
+                            )
+                        } else {
+                            (
+                                format!("{:.0}%", preview.zoom() * 100.0),
+                                "Fit to the window (0)",
+                                Action::FitImage,
+                            )
+                        };
+                        if theme::soft_button(ui, &palette, None, &label, false)
+                            .on_hover_text(hint)
+                            .clicked()
+                        {
+                            app.actions.push(action);
+                        }
+                        if theme::icon_button(
+                            ui,
+                            Icon::Minus,
+                            18.0,
+                            palette.secondary,
+                            palette.text,
+                            "Zoom out",
                         )
-                    } else {
-                        (
-                            format!("{:.0}%", preview.zoom() * 100.0),
-                            "Fit to the window (0)",
-                            Action::FitImage,
-                        )
-                    };
-                    if theme::soft_button(ui, &palette, None, &label, false)
-                        .on_hover_text(hint)
                         .clicked()
-                    {
-                        app.actions.push(action);
+                        {
+                            app.actions.push(Action::ZoomImageOut);
+                        }
+                        ui.add_space(8.0);
                     }
-                    if theme::icon_button(
-                        ui,
-                        Icon::Minus,
-                        18.0,
-                        palette.secondary,
-                        palette.text,
-                        "Zoom out",
-                    )
-                    .clicked()
-                    {
-                        app.actions.push(Action::ZoomImageOut);
-                    }
-                    ui.add_space(8.0);
                     ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
                         crate::ui::widgets::scrolling_text(
                             ui,
@@ -214,6 +226,69 @@ pub fn show(app: &mut App, ctx: &egui::Context) {
                     }
                 });
             });
+            if let Some(row) = &selected {
+                ui.horizontal_wrapped(|ui| {
+                    if row.allows_reaction() {
+                        if ui
+                            .button(crate::i18n::gettext(app.locale, "Reply"))
+                            .clicked()
+                        {
+                            app.actions.push(Action::CloseImagePreview);
+                            app.actions.push(Action::Reply(row.id.clone()));
+                        }
+                        if ui
+                            .button(crate::i18n::gettext(app.locale, "React"))
+                            .clicked()
+                        {
+                            app.actions.push(Action::CloseImagePreview);
+                            app.actions.push(Action::OpenReactionPicker {
+                                chat: row.chat.clone(),
+                                message: row.id.clone(),
+                                beside_menu: false,
+                            });
+                        }
+                    }
+                    if crate::app::can_select(&row.content)
+                        && !(row.from_me && row.status.is_local())
+                        && ui
+                            .button(crate::i18n::gettext(app.locale, "Forward"))
+                            .clicked()
+                    {
+                        app.actions.push(Action::CloseImagePreview);
+                        app.actions
+                            .push(Action::ShowDialog(crate::model::Dialog::Forward {
+                                chat: row.chat.clone(),
+                                messages: vec![row.id.clone()],
+                            }));
+                    }
+                    if preview.path().is_file()
+                        && ui
+                            .button(crate::i18n::gettext(app.locale, "Save as…"))
+                            .clicked()
+                    {
+                        app.actions.push(Action::SaveAttachmentAs {
+                            path: preview.path().into(),
+                            name: preview
+                                .path()
+                                .file_name()
+                                .and_then(|n| n.to_str())
+                                .unwrap_or("attachment")
+                                .into(),
+                        });
+                    }
+                    if ui
+                        .button(crate::i18n::gettext(app.locale, "Show in the chat"))
+                        .clicked()
+                    {
+                        app.actions.push(Action::CloseImagePreview);
+                        app.actions.push(Action::OpenMessage {
+                            chat: row.chat.clone(),
+                            message: row.id.clone(),
+                        });
+                    }
+                });
+            }
+            strip(app, ui, &preview);
             ui.separator();
 
             // The scroll area below takes this rect as its viewport.
@@ -221,168 +296,385 @@ pub fn show(app: &mut App, ctx: &egui::Context) {
             let canvas = area.size().max(Vec2::ZERO);
             // Registered with the image cache like every other draw site, so a
             // sweep never releases the picture while it is on screen.
-            let image = crate::ui::widgets::file_image(ui, preview.path());
-            match image.load_for_size(ctx, canvas) {
-                Ok(egui::load::TexturePoll::Ready { texture }) => {
-                    let size = display_size(texture.size, canvas, preview.is_fit(), preview.zoom());
-                    if preview.is_fit()
-                        && texture.size.x > 0.0
-                        && let Some(state) = &mut app.image_preview
-                    {
-                        state.set_fit_scale(size.x / texture.size.x);
-                    }
-                    let scroll_id = ui.make_persistent_id(egui::IdSalt::new((
-                        "image-preview-scroll",
-                        preview.path(),
-                    )));
-                    let trackpad = app.scrolling.from_trackpad();
-                    // Read before the scroll area, which would otherwise take the
-                    // wheel. The zoom itself is applied by `App` after the frame.
-                    let zoom = zoom_input(ui, area, trackpad).and_then(|(factor, pointer)| {
-                        let mut next = app.image_preview.clone()?;
-                        next.zoom_by(factor);
-                        let zoomed = display_size(texture.size, canvas, next.is_fit(), next.zoom());
-                        Some((factor, pointer, zoomed))
-                    });
-                    let output = egui::ScrollArea::both()
-                        .id_salt(("image-preview-scroll", preview.path()))
-                        .auto_shrink([false, false])
-                        // egui drags only on touch screens by default.
-                        .scroll_source(egui::scroll_area::ScrollSource {
-                            drag: egui::scroll_area::DragScroll::Always,
-                            ..Default::default()
-                        })
-                        .on_hover_cursor(egui::CursorIcon::Grab)
-                        .on_drag_cursor(egui::CursorIcon::Grabbing)
-                        .show(ui, |ui| {
-                            ui.allocate_ui_with_layout(
-                                canvas.max(size),
-                                Layout::centered_and_justified(egui::Direction::TopDown),
-                                |ui| {
-                                    let image_response = ui.add(
-                                        image.fit_to_exact_size(size).sense(egui::Sense::click()),
-                                    );
-                                    let copy_label = crate::i18n::gettext(app.locale, "Copy image");
-                                    let save_label = crate::i18n::gettext(app.locale, "Save as…");
-                                    let open_label =
-                                        crate::i18n::gettext(app.locale, "Open in another app");
-                                    let menu_width = crate::ui::widgets::menu_width(
-                                        ui,
-                                        &[&copy_label, &save_label, &open_label],
-                                        true,
-                                    )
-                                    .max(180.0);
-                                    egui::Popup::context_menu(&image_response)
-                                        .width(menu_width)
-                                        .frame(crate::ui::widgets::menu_frame(&palette))
-                                        .show(|ui| {
-                                            if crate::ui::widgets::menu_item(
-                                                ui,
-                                                &palette,
-                                                Some(Icon::Copy),
-                                                &copy_label,
-                                            ) {
-                                                app.actions.push(Action::CopyImage(
-                                                    preview.path().to_owned(),
-                                                ));
-                                            }
-                                            if crate::ui::widgets::menu_item(
-                                                ui,
-                                                &palette,
-                                                Some(Icon::Download),
-                                                &save_label,
-                                            ) {
-                                                let name = preview
-                                                    .path()
-                                                    .file_name()
-                                                    .and_then(|name| name.to_str())
-                                                    .unwrap_or("image.png")
-                                                    .to_owned();
-                                                app.actions.push(Action::SaveAttachmentAs {
-                                                    path: preview.path().to_owned(),
-                                                    name,
-                                                });
-                                            }
-                                            if crate::ui::widgets::menu_item(
-                                                ui,
-                                                &palette,
-                                                Some(Icon::ExternalLink),
-                                                &open_label,
-                                            ) {
-                                                app.actions.push(Action::OpenFile(
-                                                    preview.path().to_owned(),
-                                                ));
-                                            }
-                                        });
-                                    image_response
-                                        .interact_pointer_pos()
-                                        .filter(|_| image_response.double_clicked())
-                                },
-                            )
-                            .inner
-                        });
-                    // Stored after the scroll area, which clamps its offset to
-                    // this frame's size; the next frame lays out the zoomed size
-                    // with the pointed-at pixel still under the pointer.
-                    if let Some((factor, pointer, zoomed)) = zoom {
-                        let mut scroll = output.state;
-                        scroll.offset = crate::image_preview::anchored_offset(
-                            canvas,
-                            size,
-                            zoomed,
-                            output.state.offset,
-                            pointer,
-                            pointer,
-                        );
-                        scroll.store(ctx, scroll_id);
-                        app.actions.push(Action::ZoomImageBy(factor));
-                    }
-                    // The header's Fit/% toggle. The original size opens with the
-                    // double-clicked point in the middle: the offset is stored for
-                    // the next frame, which lays out the new size.
-                    if let Some(pos) = output.inner {
-                        if app
-                            .image_preview
-                            .as_ref()
-                            .is_some_and(crate::image_preview::PreviewState::is_fit)
+            if !preview.path().is_file() {
+                missing(app, ui, &selected, canvas);
+            } else if is_video {
+                clip(app, ui, &selected, preview.path(), area);
+            } else if app.settings.screen_privacy.hides(
+                crate::settings::ScreenPrivacyWhat::Media,
+                ui.rect_contains_pointer(area),
+            ) {
+                ui.allocate_rect(area, egui::Sense::hover());
+                super::widgets::privacy_cover(ui, area, app.palette.surface_hover, 6.0);
+            } else {
+                let image = crate::ui::widgets::file_image(ui, preview.path());
+                match image.load_for_size(ctx, canvas) {
+                    Ok(egui::load::TexturePoll::Ready { texture }) => {
+                        let size =
+                            display_size(texture.size, canvas, preview.is_fit(), preview.zoom());
+                        if preview.is_fit()
+                            && texture.size.x > 0.0
+                            && let Some(state) = &mut app.image_preview
                         {
+                            state.set_fit_scale(size.x / texture.size.x);
+                        }
+                        let scroll_id = ui.make_persistent_id(egui::IdSalt::new((
+                            "image-preview-scroll",
+                            preview.path(),
+                        )));
+                        let trackpad = app.scrolling.from_trackpad();
+                        // Read before the scroll area, which would otherwise take the
+                        // wheel. The zoom itself is applied by `App` after the frame.
+                        let zoom = zoom_input(ui, area, trackpad).and_then(|(factor, pointer)| {
+                            let mut next = app.image_preview.clone()?;
+                            next.zoom_by(factor);
+                            let zoomed =
+                                display_size(texture.size, canvas, next.is_fit(), next.zoom());
+                            Some((factor, pointer, zoomed))
+                        });
+                        let output = egui::ScrollArea::both()
+                            .id_salt(("image-preview-scroll", preview.path()))
+                            .auto_shrink([false, false])
+                            // egui drags only on touch screens by default.
+                            .scroll_source(egui::scroll_area::ScrollSource {
+                                drag: egui::scroll_area::DragScroll::Always,
+                                ..Default::default()
+                            })
+                            .on_hover_cursor(egui::CursorIcon::Grab)
+                            .on_drag_cursor(egui::CursorIcon::Grabbing)
+                            .show(ui, |ui| {
+                                ui.allocate_ui_with_layout(
+                                    canvas.max(size),
+                                    Layout::centered_and_justified(egui::Direction::TopDown),
+                                    |ui| {
+                                        let image_response = ui.add(
+                                            image
+                                                .fit_to_exact_size(size)
+                                                .sense(egui::Sense::click()),
+                                        );
+                                        let copy_label =
+                                            crate::i18n::gettext(app.locale, "Copy image");
+                                        let save_label =
+                                            crate::i18n::gettext(app.locale, "Save as…");
+                                        let open_label =
+                                            crate::i18n::gettext(app.locale, "Open in another app");
+                                        let menu_width = crate::ui::widgets::menu_width(
+                                            ui,
+                                            &[&copy_label, &save_label, &open_label],
+                                            true,
+                                        )
+                                        .max(180.0);
+                                        egui::Popup::context_menu(&image_response)
+                                            .width(menu_width)
+                                            .frame(crate::ui::widgets::menu_frame(&palette))
+                                            .show(|ui| {
+                                                if crate::ui::widgets::menu_item(
+                                                    ui,
+                                                    &palette,
+                                                    Some(Icon::Copy),
+                                                    &copy_label,
+                                                ) {
+                                                    app.actions.push(Action::CopyImage(
+                                                        preview.path().to_owned(),
+                                                    ));
+                                                }
+                                                if crate::ui::widgets::menu_item(
+                                                    ui,
+                                                    &palette,
+                                                    Some(Icon::Download),
+                                                    &save_label,
+                                                ) {
+                                                    let name = preview
+                                                        .path()
+                                                        .file_name()
+                                                        .and_then(|name| name.to_str())
+                                                        .unwrap_or("image.png")
+                                                        .to_owned();
+                                                    app.actions.push(Action::SaveAttachmentAs {
+                                                        path: preview.path().to_owned(),
+                                                        name,
+                                                    });
+                                                }
+                                                if crate::ui::widgets::menu_item(
+                                                    ui,
+                                                    &palette,
+                                                    Some(Icon::ExternalLink),
+                                                    &open_label,
+                                                ) {
+                                                    app.actions.push(Action::OpenFile(
+                                                        preview.path().to_owned(),
+                                                    ));
+                                                }
+                                            });
+                                        image_response
+                                            .interact_pointer_pos()
+                                            .filter(|_| image_response.double_clicked())
+                                    },
+                                )
+                                .inner
+                            });
+                        // Stored after the scroll area, which clamps its offset to
+                        // this frame's size; the next frame lays out the zoomed size
+                        // with the pointed-at pixel still under the pointer.
+                        if let Some((factor, pointer, zoomed)) = zoom {
                             let mut scroll = output.state;
                             scroll.offset = crate::image_preview::anchored_offset(
                                 canvas,
                                 size,
-                                texture.size,
+                                zoomed,
                                 output.state.offset,
-                                pos - area.min,
-                                canvas / 2.0,
+                                pointer,
+                                pointer,
                             );
                             scroll.store(ctx, scroll_id);
-                            app.actions.push(Action::ImageActualSize);
-                        } else {
-                            app.actions.push(Action::FitImage);
+                            app.actions.push(Action::ZoomImageBy(factor));
+                        }
+                        // The header's Fit/% toggle. The original size opens with the
+                        // double-clicked point in the middle: the offset is stored for
+                        // the next frame, which lays out the new size.
+                        if let Some(pos) = output.inner {
+                            if app
+                                .image_preview
+                                .as_ref()
+                                .is_some_and(crate::image_preview::PreviewState::is_fit)
+                            {
+                                let mut scroll = output.state;
+                                scroll.offset = crate::image_preview::anchored_offset(
+                                    canvas,
+                                    size,
+                                    texture.size,
+                                    output.state.offset,
+                                    pos - area.min,
+                                    canvas / 2.0,
+                                );
+                                scroll.store(ctx, scroll_id);
+                                app.actions.push(Action::ImageActualSize);
+                            } else {
+                                app.actions.push(Action::FitImage);
+                            }
                         }
                     }
-                }
-                Ok(egui::load::TexturePoll::Pending { .. }) => {
-                    let (rect, _) = ui.allocate_exact_size(canvas, egui::Sense::hover());
-                    theme::paint_spinner(ui, rect, 28.0, palette.accent);
-                }
-                Err(_) => {
-                    ui.allocate_ui_with_layout(
-                        canvas,
-                        Layout::centered_and_justified(egui::Direction::TopDown),
-                        |ui| {
-                            ui.label("This image could not be displayed in Zap Faster.");
-                            if ui.button("Open externally").clicked() {
-                                app.actions
-                                    .push(Action::OpenFile(preview.path().to_owned()));
-                            }
-                        },
-                    );
+                    Ok(egui::load::TexturePoll::Pending { .. }) => {
+                        let (rect, _) = ui.allocate_exact_size(canvas, egui::Sense::hover());
+                        theme::paint_spinner(ui, rect, 28.0, palette.accent);
+                    }
+                    Err(_) => {
+                        ui.allocate_ui_with_layout(
+                            canvas,
+                            Layout::centered_and_justified(egui::Direction::TopDown),
+                            |ui| {
+                                ui.label("This image could not be displayed in Zap Faster.");
+                                if ui.button("Open externally").clicked() {
+                                    app.actions
+                                        .push(Action::OpenFile(preview.path().to_owned()));
+                                }
+                            },
+                        );
+                    }
                 }
             }
         });
     if response.should_close() {
         app.actions.push(Action::CloseImagePreview);
+    }
+}
+
+/// Thumbnails use only archive previews, never full attachment decoding.
+fn strip(app: &mut App, ui: &mut egui::Ui, preview: &crate::image_preview::PreviewState) {
+    let listing = app
+        .gallery
+        .listing
+        .take()
+        .filter(|listing| Some(listing.chat.as_str()) == preview.chat());
+    let Some(listing) = listing else {
+        return;
+    };
+    egui::ScrollArea::horizontal()
+        .id_salt("viewer-strip")
+        .max_height(76.0)
+        .show(ui, |ui| {
+            ui.horizontal(|ui| {
+                for row in listing.media.iter().rev() {
+                    let (rect, response) =
+                        ui.allocate_exact_size(Vec2::splat(64.0), egui::Sense::click());
+                    let hidden = app.settings.screen_privacy.hides(
+                        crate::settings::ScreenPrivacyWhat::Media,
+                        response.hovered(),
+                    );
+                    if ui.is_rect_visible(rect) && !hidden {
+                        let uri = super::gallery::uri(app, row);
+                        if !super::gallery::thumbnail(ui, &app.palette, rect, row, Some(&uri)) {
+                            theme::paint_icon(
+                                ui,
+                                if matches!(row.content, Content::Video { .. }) {
+                                    Icon::Video
+                                } else {
+                                    Icon::Image
+                                },
+                                rect,
+                                24.0,
+                                app.palette.secondary,
+                            );
+                        }
+                        if Some(row.id.as_str()) == preview.message() {
+                            ui.painter().rect_stroke(
+                                rect,
+                                6.0,
+                                Stroke::new(2.0, app.palette.accent),
+                                egui::StrokeKind::Inside,
+                            );
+                        }
+                    } else if hidden {
+                        super::widgets::privacy_cover(ui, rect, app.palette.surface_hover, 6.0);
+                    }
+                    let label = if matches!(row.content, Content::Video { .. }) {
+                        crate::i18n::gettext(app.locale, "Video")
+                    } else {
+                        crate::i18n::gettext(app.locale, "Photo")
+                    };
+                    response.widget_info(|| {
+                        egui::WidgetInfo::labeled(egui::WidgetType::Button, true, label.as_ref())
+                    });
+                    if response.clicked() {
+                        app.actions.push(Action::PreviewMedia {
+                            chat: row.chat.clone(),
+                            message: row.id.clone(),
+                        });
+                    }
+                }
+            });
+        });
+    app.gallery.listing = Some(listing);
+}
+
+fn missing(
+    app: &mut App,
+    ui: &mut egui::Ui,
+    selected: &Option<crate::model::Message>,
+    canvas: Vec2,
+) {
+    ui.allocate_ui_with_layout(
+        canvas,
+        Layout::centered_and_justified(egui::Direction::TopDown),
+        |ui| {
+            let Some(row) = selected else {
+                return;
+            };
+            let state = row.content.media().map(|media| &media.state);
+            match state {
+                Some(MediaState::Downloading) => {
+                    theme::spinner(ui, 24.0, app.palette.accent);
+                }
+                Some(MediaState::Transferring { bytes, total }) => {
+                    let fraction = total
+                        .filter(|total| *total > 0)
+                        .map_or(0.0, |total| *bytes as f32 / total as f32);
+                    ui.add(
+                        egui::ProgressBar::new(fraction.min(1.0)).text(crate::util::bytes(*bytes)),
+                    );
+                    if ui
+                        .button(crate::i18n::gettext(app.locale, "Cancel"))
+                        .clicked()
+                    {
+                        app.actions.push(Action::CancelDownload {
+                            chat: row.chat.clone(),
+                            message: row.id.clone(),
+                            card: None,
+                        });
+                    }
+                }
+                _ => {
+                    if let Some(MediaState::Failed(reason)) = state {
+                        ui.label(reason);
+                    }
+                    if ui
+                        .button(crate::i18n::gettext(app.locale, "Download"))
+                        .clicked()
+                    {
+                        app.actions.push(Action::Download {
+                            chat: row.chat.clone(),
+                            message: row.id.clone(),
+                            card: None,
+                        });
+                    }
+                }
+            }
+        },
+    );
+}
+
+fn clip(
+    app: &mut App,
+    ui: &mut egui::Ui,
+    selected: &Option<crate::model::Message>,
+    path: &std::path::Path,
+    area: Rect,
+) {
+    let Some(row) = selected else {
+        return;
+    };
+    if let Some(status) = app.video.status(&row.id) {
+        let shape = status
+            .frame
+            .as_ref()
+            .map_or(vec2(16.0, 9.0), |frame| frame.size_vec2());
+        let rect = super::video_preview::fitted(shape, area);
+        let response = ui.interact(rect, ui.id().with("gallery-video"), egui::Sense::click());
+        let hidden = app.settings.screen_privacy.hides(
+            crate::settings::ScreenPrivacyWhat::Media,
+            response.hovered(),
+        );
+        if hidden {
+            super::widgets::privacy_cover(ui, rect, app.palette.surface_hover, 6.0);
+        } else if let Some(frame) = &status.frame {
+            ui.painter().image(
+                frame.id(),
+                rect,
+                Rect::from_min_max(egui::Pos2::ZERO, egui::pos2(1.0, 1.0)),
+                egui::Color32::WHITE,
+            );
+        } else {
+            theme::paint_spinner(ui, rect, 28.0, app.palette.accent);
+        }
+        let mut actions = Vec::new();
+        super::conversation::video_controls(
+            ui,
+            &super::conversation::VideoControls {
+                player: &app.video,
+                locale: app.locale,
+                accent: app.palette.accent,
+                expanded: false,
+            },
+            &row.id,
+            path,
+            rect,
+            &status,
+            &mut actions,
+        );
+        if response.clicked() {
+            actions.push(Action::PlayVideo {
+                message: row.id.clone(),
+                path: path.into(),
+            });
+        }
+        app.actions.extend(actions);
+        ui.allocate_rect(area, egui::Sense::hover());
+    } else {
+        ui.allocate_ui_with_layout(
+            area.size(),
+            Layout::centered_and_justified(egui::Direction::TopDown),
+            |ui| {
+                if ui
+                    .button(crate::i18n::gettext(app.locale, "Play video"))
+                    .clicked()
+                {
+                    app.actions.push(Action::PlayVideo {
+                        message: row.id.clone(),
+                        path: path.into(),
+                    });
+                }
+            },
+        );
     }
 }
 

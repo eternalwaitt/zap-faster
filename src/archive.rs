@@ -13,6 +13,7 @@ use crate::model::{
 
 mod drafts;
 mod encryption;
+mod gallery;
 mod outgoing;
 pub use encryption::{archive_key_identity, copy_archive_key, forget_archive_key};
 mod favorites;

@@ -5068,6 +5068,41 @@ impl Worker {
                     self.pump_read_sync();
                 }
             }
+            Command::LoadGallery {
+                chat,
+                token,
+                anchor,
+            } => {
+                if !self.privacy_ready {
+                    self.emit(Event::Gallery {
+                        chat,
+                        token,
+                        listing: None,
+                    });
+                    return;
+                }
+                let result = match anchor {
+                    Some(id) => self.archive.viewer_listing(&chat, &id),
+                    None => self.archive.gallery(&chat),
+                };
+                let listing = match result {
+                    Ok(mut listing) => {
+                        for row in listing.media.iter_mut().chain(&mut listing.docs) {
+                            self.polish(row);
+                        }
+                        Some(listing)
+                    }
+                    Err(error) => {
+                        log::warn!("could not read gallery: {error}");
+                        None
+                    }
+                };
+                self.emit(Event::Gallery {
+                    chat,
+                    token,
+                    listing,
+                });
+            }
             Command::LoadChat { chat, before } => self.load_chat(chat, before),
             Command::FetchOlder { chat, explicit } => self.fetch_older(chat, explicit),
             Command::ReloadHistory { chat, message } => self.reload_history(chat, message),

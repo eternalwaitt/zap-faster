@@ -229,9 +229,12 @@ videos. Downloads stream to a temporary file with at most two active transfers;
 verified files enter the cache only after the protocol library checks their
 integrity. Transfer progress and cancellation appear beside the attachment.
 Cancelled, failed, oversized, or timed-out transfers discard their partial file.
+Images above 64 MiB can be saved and opened in another app; Zap Faster does not
+load those files into memory for an in-process image preview or clipboard copy.
 Attachment preparation and uploads run in selection order, with progress and
 cancellation above the composer. Upload progress counts encrypted transfer bytes.
-Unfinished attachment preparation is not recovered after closing the app. If an attachment has expired, Zap Faster asks your phone to upload
+Unfinished attachment preparation is not recovered after closing the app.
+If an attachment has expired, Zap Faster asks your phone to upload
 it again. A live-location share shows the position this linked device received;
 WhatsApp sends later positions only to the phone. Zap Faster marks when newer
 positions are available there, but cannot follow the moving location here.
@@ -345,18 +348,33 @@ with sound, a seek bar, a speed chip, and a mute switch; round video messages
 play inside their circle. Click the speed chip to cycle 1x, 1.5x, and 2x, as on
 voice messages: the voice keeps its pitch, in mono while sped up, and the
 speed stays for the next video until Zap Faster quits. Already downloaded videos play from their local file. Playback
-waits for the download to finish, and the [64 MiB download limit](#attachments)
+waits for the download to finish, and the [manual download limit](#attachments)
 also applies to videos. Double-click one, or use the button at the end of its
 controls, to play it over the whole window:
 Space plays and pauses, the arrows jump five seconds, M mutes, S changes the
 speed, and Escape puts it back. The built-in player supports H.264 video in MP4 files; other formats
 open in your system player.
 
-Click a downloaded photo to preview it, with zoom (wheel, Ctrl+wheel, or a
-pinch) and **Copy image**. Use the previous and next buttons or Left/Right
-arrow keys to browse downloaded photos and interactive-card images in the
-loaded conversation. Navigation skips unavailable files and stops at either
-end; it does not download attachments or fetch older history.
+Click a downloaded photo to open the native media viewer. Zoom with the wheel,
+Ctrl+wheel or a pinch, pan by dragging, and use **Copy image** or **Save as…**.
+The thumbnail strip and Left/Right arrows browse an archive page around the
+selected photo, including photos and videos outside the loaded transcript.
+Missing files offer **Download**, progress and cancellation. Videos play in the
+viewer with the existing playback, seek, speed and mute controls. Their normal
+bubble click still plays inline; **Open in the viewer** is available in the
+message menu. Reply, React, Forward and **Show in the chat** act on the selected
+message. Navigation itself never downloads a file.
+
+Open a chat's profile and choose **Media, links and docs** to browse its media,
+documents or web links, newest first. Media opens in the viewer, documents can
+be saved, downloaded or shown in the chat, and links open in the browser.
+Each category lists at most 500 items. Link parsing examines only the newest
+4,096 messages, including rejected candidates; the panel says when results are
+partial and suggests chat search for older items. A viewer opened on an older
+photo instead loads a page around that photo. **Refresh** reloads the listing.
+Escape returns from the gallery to the profile before closing it. The gallery
+respects the account's screen privacy and authenticated locked-chat folder.
+
 The preview closes when its chat is removed, becomes locked outside the unlocked
 folder, or when you close the locked folder.
 **Save as…** in a downloaded attachment's
@@ -608,3 +626,14 @@ default audio output. Zap Faster does not fall back to an unrelated output when
 that device cannot open. Active playback checks for default-device changes and
 stream errors; it reopens at the current position or pauses with an error. Routing
 on other platforms and physical device changes still need attended testing.
+
+The rate-limit queue adapts [pulgueta's PR #364](https://github.com/crmne/zapfast/pull/364),
+with fork-specific durable reconnect recovery and transfer handling. The gallery
+and viewer adapt [pulgueta's PR #264](https://github.com/crmne/zapfast/pull/264)
+and [LisandroNahuelH's PR #189](https://github.com/crmne/zapfast/pull/189).
+These contributors retain credit for their original work; the fork's adaptation
+preserves the existing multi-account and privacy architecture.
+
+Offline previews are available as `gallery`, `gallery-docs`, `gallery-links`,
+`gallery-pending`, `gallery-failed`, `viewer-missing`, `viewer-progress`,
+`viewer-video` and `transfer-progress`, through `--demo --demo-page`.

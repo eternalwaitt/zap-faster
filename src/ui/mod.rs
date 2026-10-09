@@ -5,6 +5,7 @@ pub mod chats;
 pub mod conversation;
 pub mod dialogs;
 pub(crate) mod focus;
+pub mod gallery;
 pub mod image_editor;
 pub mod image_preview;
 pub mod keys;

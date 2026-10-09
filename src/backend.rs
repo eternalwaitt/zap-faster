@@ -151,6 +151,11 @@ pub struct CreatedPoll {
 
 #[derive(Debug)]
 pub enum Command {
+    LoadGallery {
+        chat: ChatId,
+        token: u64,
+        anchor: Option<String>,
+    },
     CancelQueued {
         chat: ChatId,
         id: String,
@@ -929,6 +934,11 @@ pub enum SendFailure {
 
 #[derive(Debug)]
 pub enum Event {
+    Gallery {
+        chat: ChatId,
+        token: u64,
+        listing: Option<crate::model::ChatMedia>,
+    },
     UploadProgress {
         token: u64,
         chat: ChatId,

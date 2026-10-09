@@ -481,6 +481,78 @@ impl Message {
     }
 }
 
+/// A web link in a chat's messages, for the info panel's Links tab.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ChatLink {
+    /// The message it was written in.
+    pub message: String,
+    pub timestamp: i64,
+    pub url: String,
+    /// The preview's title, when WhatsApp attached one for this address.
+    pub title: Option<String>,
+}
+
+/// How many pictures and videos, documents, and links the info panel lists
+/// for a chat, each. The worker asks the archive for one more, so a full
+/// list can be told apart from a cut one.
+pub const MEDIA_LIST_LIMIT: usize = 500;
+
+/// What the info panel lists for one chat: its pictures and videos, its
+/// documents, and the web links in its text, each newest first.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct ChatMedia {
+    pub chat: ChatId,
+    pub media: Vec<Message>,
+    pub docs: Vec<Message>,
+    pub links: Vec<ChatLink>,
+    /// Whether the archive held more than each list carries.
+    pub media_truncated: bool,
+    pub docs_truncated: bool,
+    pub links_truncated: bool,
+}
+
+impl ChatMedia {
+    /// Files `rows` under their tabs, newest first, each list cut at
+    /// `limit`. Stickers, audio, deleted and phone-only messages, and text
+    /// without a web link are left out.
+    pub fn collect(chat: ChatId, mut rows: Vec<Message>, limit: usize) -> Self {
+        rows.sort_by_key(|row| std::cmp::Reverse(row.timestamp));
+        let mut media = Self {
+            chat,
+            ..Self::default()
+        };
+        for row in rows {
+            match &row.content {
+                Content::Image { .. } | Content::Video { .. } => media.media.push(row),
+                Content::Document { .. } => media.docs.push(row),
+                Content::Text { .. } => {
+                    for (url, title) in row.content.web_links() {
+                        media.links.push(ChatLink {
+                            message: row.id.clone(),
+                            timestamp: row.timestamp,
+                            url,
+                            title,
+                        });
+                    }
+                }
+                _ => {}
+            }
+        }
+        media.media_truncated = media.media.len() > limit;
+        media.docs_truncated = media.docs.len() > limit;
+        media.links_truncated = media.links.len() > limit;
+        media.media.truncate(limit);
+        media.docs.truncate(limit);
+        media.links.truncate(limit);
+        media
+    }
+
+    /// Whether any list was cut.
+    pub fn truncated(&self) -> bool {
+        self.media_truncated || self.docs_truncated || self.links_truncated
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Quoted {
     /// Source chat for a cross-chat quote, absent for ordinary replies.
@@ -847,6 +919,44 @@ impl Content {
                 caption, gif, note, ..
             } => captioned(video_label(*gif, *note), caption),
             _ => self.summary(),
+        }
+    }
+
+    /// The web addresses in a text message: the preview's, with its title,
+    /// then the others written in the text, each once.
+    pub fn web_links(&self) -> Vec<(String, Option<String>)> {
+        let Self::Text { text, preview } = self else {
+            return Vec::new();
+        };
+        // The preview's address was normalised when it was archived; the
+        // ones found in the text are normalised the same way, so an address
+        // typed without its scheme is not listed beside its preview.
+        let normalise =
+            |url: &str| crate::safety::preview_url(url).unwrap_or_else(|| url.to_owned());
+        let mut links: Vec<(String, Option<String>)> = Vec::new();
+        if let Some(preview) = preview {
+            let title = preview
+                .title
+                .clone()
+                .filter(|title| !title.trim().is_empty());
+            links.push((normalise(&preview.url), title));
+        }
+        for url in crate::markup::links(text) {
+            let url = normalise(&url);
+            if !links.iter().any(|(known, _)| *known == url) {
+                links.push((url, None));
+            }
+        }
+        links
+    }
+
+    /// Whether the info panel lists this message: a picture, a video, a
+    /// document, or text with a web link.
+    pub fn listable(&self) -> bool {
+        match self {
+            Self::Image { .. } | Self::Video { .. } | Self::Document { .. } => true,
+            Self::Text { .. } => !self.web_links().is_empty(),
+            _ => false,
         }
     }
 
@@ -1912,6 +2022,15 @@ pub enum Action {
     /// externally; an image that then fails to decode shows a message with an
     /// Open externally button inside the preview.
     PreviewImage(PathBuf),
+    OpenGallery {
+        chat: ChatId,
+    },
+    GalleryTab(Option<MediaTab>),
+    RefreshGallery,
+    PreviewMedia {
+        chat: ChatId,
+        message: String,
+    },
     PreviousImage,
     NextImage,
     ZoomImageIn,
@@ -2313,6 +2432,25 @@ pub enum Action {
     CancelPictureEdit,
     /// Removes all pending attachments.
     ClearPending,
+}
+
+/// The tab open in the info panel's media view.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum MediaTab {
+    Media,
+    Docs,
+    Links,
+}
+
+/// One account's bounded archive listing and its request generation.
+#[derive(Clone, Debug, Default)]
+pub struct GalleryState {
+    pub chat: Option<ChatId>,
+    pub token: u64,
+    pub listing: Option<ChatMedia>,
+    pub pending: bool,
+    pub failed: bool,
+    pub tab: Option<MediaTab>,
 }
 
 #[cfg(test)]

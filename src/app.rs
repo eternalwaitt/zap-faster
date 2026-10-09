@@ -2023,6 +2023,11 @@ impl App {
     /// hits and dialogs, and, when it is open, the conversation with its
     /// composer, recording and playback. Keeping a draft is up to the caller.
     fn leave_chat(&mut self, id: &str) {
+        if self.gallery.chat.as_deref() == Some(id) {
+            self.gallery.listing = None;
+            self.gallery.pending = false;
+            self.gallery.token = self.gallery.token.wrapping_add(1);
+        }
         self.clear_chat_notifications(id);
         self.search_hits.retain(|message| message.chat != id);
         if self.events_hidden {
@@ -2720,6 +2725,44 @@ impl App {
     /// Applies a changed row. A requeued one is a send refused again: it
     /// goes first among the waiting rows it ties with.
     fn message_updated(&mut self, message: Message, requeued: bool) {
+        if let Some(listing) = self
+            .gallery
+            .listing
+            .as_mut()
+            .filter(|listing| listing.chat == message.chat)
+        {
+            for rows in [&mut listing.media, &mut listing.docs] {
+                if let Some(existing) = rows.iter_mut().find(|row| row.id == message.id) {
+                    *existing = message.clone();
+                }
+                rows.retain(|row| row.content.listable());
+            }
+            if listing.links.iter().any(|link| link.message == message.id) {
+                listing.links.retain(|link| link.message != message.id);
+                let updated = crate::model::ChatMedia::collect(
+                    message.chat.clone(),
+                    vec![message.clone()],
+                    crate::model::MEDIA_LIST_LIMIT,
+                );
+                listing.links.extend(updated.links);
+                listing
+                    .links
+                    .sort_by_key(|link| std::cmp::Reverse(link.timestamp));
+                listing.links_truncated |= listing.links.len() > crate::model::MEDIA_LIST_LIMIT;
+                listing.links.truncate(crate::model::MEDIA_LIST_LIMIT);
+            }
+        }
+        if !matches!(
+            message.content,
+            Content::Image { .. } | Content::Video { .. }
+        ) && !self.events_hidden
+            && self.image_preview.as_ref().is_some_and(|p| {
+                p.chat() == Some(message.chat.as_str()) && p.message() == Some(message.id.as_str())
+            })
+        {
+            self.image_preview = None;
+            self.video.stop();
+        }
         let id = message.id.clone();
         let keep_transcript = matches!(
             message.content,
@@ -3132,6 +3175,24 @@ impl App {
                 }
             }
             Event::MessageDeleted { chat, id } => {
+                if let Some(listing) = self
+                    .gallery
+                    .listing
+                    .as_mut()
+                    .filter(|listing| listing.chat == chat)
+                {
+                    listing.media.retain(|row| row.id != id);
+                    listing.docs.retain(|row| row.id != id);
+                    listing.links.retain(|row| row.message != id);
+                }
+                if live
+                    && self.image_preview.as_ref().is_some_and(|p| {
+                        p.chat() == Some(chat.as_str()) && p.message() == Some(id.as_str())
+                    })
+                {
+                    self.image_preview = None;
+                    self.video.stop();
+                }
                 if let Some(conversation) = self.conversations.get_mut(&chat) {
                     conversation.messages.retain(|message| message.id != id);
                     conversation.transcripts.remove(&id);
@@ -3163,6 +3224,21 @@ impl App {
                 bytes,
                 total,
             } => {
+                if card.is_none()
+                    && let Some(listing) = self
+                        .gallery
+                        .listing
+                        .as_mut()
+                        .filter(|listing| listing.chat == chat)
+                    && let Some(row) = listing
+                        .media
+                        .iter_mut()
+                        .chain(&mut listing.docs)
+                        .find(|row| row.id == message)
+                    && let Some(media) = row.content.media_at_mut(None)
+                {
+                    media.state = MediaState::Transferring { bytes, total };
+                }
                 if let Some(media) = self
                     .conversations
                     .get_mut(&chat)
@@ -3174,6 +3250,23 @@ impl App {
                     )
                 {
                     media.state = MediaState::Transferring { bytes, total };
+                }
+            }
+            Event::Gallery {
+                chat,
+                token,
+                listing,
+            } => {
+                if self.gallery.chat.as_deref() == Some(chat.as_str())
+                    && self.gallery.token == token
+                {
+                    self.gallery.pending = false;
+                    if self.gallery_accessible(&chat) {
+                        self.gallery.failed = listing.is_none();
+                        self.gallery.listing = listing;
+                    } else {
+                        self.gallery.listing = None;
+                    }
                 }
             }
             Event::Media {
@@ -3840,6 +3933,16 @@ impl App {
     /// one of its messages would otherwise refer to rows that are gone, and a
     /// pending edit would send `EditText` for a message that no longer exists.
     fn handle_chat_cleared(&mut self, id: &str, through: i64, live: bool) {
+        if let Some(listing) = self
+            .gallery
+            .listing
+            .as_mut()
+            .filter(|listing| listing.chat == id)
+        {
+            listing.media.retain(|row| row.timestamp > through);
+            listing.docs.retain(|row| row.timestamp > through);
+            listing.links.retain(|row| row.timestamp > through);
+        }
         // A confirmation that is open for this chat is about messages that are
         // already gone: clearing again would take what arrived since.
         if matches!(&self.dialog, Some(Dialog::ConfirmClearChat(chat)) if chat == id) {
@@ -4182,6 +4285,105 @@ impl App {
         }
     }
 
+    pub(crate) fn gallery_accessible(&self, chat: &str) -> bool {
+        !self.app_lock.is_locked()
+            && self
+                .chat(chat)
+                .is_some_and(|row| !row.locked || self.locked_folder_open())
+    }
+    pub(crate) fn request_gallery(&mut self, chat: &str, refresh: bool) {
+        if !self.gallery_accessible(chat) {
+            return;
+        }
+        if !refresh
+            && self.gallery.chat.as_deref() == Some(chat)
+            && (self.gallery.pending || self.gallery.listing.is_some())
+        {
+            return;
+        }
+        if self.gallery.chat.as_deref() != Some(chat) {
+            self.gallery.listing = None;
+        }
+        self.gallery.chat = Some(chat.into());
+        self.gallery.token = self.gallery.token.wrapping_add(1);
+        self.gallery.pending = true;
+        self.gallery.failed = false;
+        let anchor = self
+            .image_preview
+            .as_ref()
+            .filter(|preview| preview.chat() == Some(chat))
+            .and_then(|preview| preview.message())
+            .map(str::to_owned);
+        self.backend.send(Command::LoadGallery {
+            chat: chat.into(),
+            token: self.gallery.token,
+            anchor,
+        });
+    }
+    fn hydrate_gallery_message(&mut self, chat: &str, id: &str) {
+        if !self.gallery_accessible(chat)
+            || self
+                .conversations
+                .get(chat)
+                .is_some_and(|c| c.message(id).is_some())
+        {
+            return;
+        }
+        let row = self
+            .gallery
+            .listing
+            .as_ref()
+            .filter(|listing| listing.chat == chat)
+            .and_then(|listing| {
+                listing
+                    .media
+                    .iter()
+                    .chain(&listing.docs)
+                    .find(|row| row.id == id)
+            })
+            .cloned();
+        if let Some(row) = row {
+            self.conversations
+                .entry(chat.into())
+                .or_default()
+                .merge(vec![row], true);
+        }
+    }
+    fn preview_media(&mut self, chat: String, id: String, ctx: &egui::Context) {
+        if !self.gallery_accessible(&chat) {
+            return;
+        }
+        self.hydrate_gallery_message(&chat, &id);
+        let Some(row) = self
+            .conversations
+            .get(&chat)
+            .and_then(|c| c.message(&id))
+            .cloned()
+        else {
+            return;
+        };
+        if !matches!(row.content, Content::Image { .. } | Content::Video { .. }) {
+            return;
+        }
+        let path = row
+            .content
+            .media()
+            .and_then(|media| media.path.clone())
+            .filter(|path| path.is_file());
+        self.video.stop();
+        let mut preview = PreviewState::in_conversation(PathBuf::new(), Some(chat.clone()));
+        preview.select_message(id, path);
+        self.image_preview = Some(preview);
+        self.dialog = None;
+        self.picker = None;
+        self.request_gallery(&chat, false);
+        ctx.memory_mut(|memory| {
+            if let Some(focused) = memory.focused() {
+                memory.surrender_focus(focused);
+            }
+        });
+    }
+
     fn handle_media(
         &mut self,
         chat: &str,
@@ -4189,6 +4391,37 @@ impl App {
         card: Option<usize>,
         result: Result<PathBuf, String>,
     ) {
+        if card.is_none()
+            && let Some(listing) = self
+                .gallery
+                .listing
+                .as_mut()
+                .filter(|listing| listing.chat == chat)
+            && let Some(row) = listing
+                .media
+                .iter_mut()
+                .chain(&mut listing.docs)
+                .find(|row| row.id == id)
+            && let Some(media) = row.content.media_at_mut(None)
+        {
+            match &result {
+                Ok(path) => {
+                    media.path = Some(path.clone());
+                    media.state = MediaState::Idle;
+                }
+                Err(reason) => media.state = MediaState::Failed(reason.clone()),
+            }
+        }
+        if card.is_none()
+            && let Ok(path) = &result
+            && !self.events_hidden
+            && let Some(preview) = self
+                .image_preview
+                .as_mut()
+                .filter(|p| p.chat() == Some(chat) && p.message() == Some(id))
+        {
+            preview.select_message(id.into(), Some(path.clone()));
+        }
         let want_video = self
             .video_wanted
             .as_ref()
@@ -5499,6 +5732,7 @@ impl App {
                 chat,
                 message,
             } => {
+                self.hydrate_gallery_message(&chat, &message);
                 let Some(media) = self
                     .conversations
                     .get_mut(&chat)
@@ -5545,10 +5779,45 @@ impl App {
             Action::Transcribe { chat, message } => {
                 self.request_transcription(chat, message, true);
             }
+            Action::OpenGallery { chat } => {
+                if self.gallery_accessible(&chat) {
+                    self.image_preview = None;
+                    self.video.stop();
+                    self.request_gallery(&chat, true);
+                    self.gallery.tab = Some(crate::model::MediaTab::Media);
+                    self.dialog = Some(Dialog::ChatInfo(chat));
+                }
+            }
+            Action::GalleryTab(tab) => self.gallery.tab = tab,
+            Action::RefreshGallery => {
+                if let Some(chat) = self.gallery.chat.clone() {
+                    self.request_gallery(&chat, true);
+                }
+            }
+            Action::PreviewMedia { chat, message } => self.preview_media(chat, message, ctx),
             Action::PreviewImage(path) => {
                 if crate::safety::can_preview_image(&path) && path.is_file() {
+                    let chat = self.open_chat.clone();
+                    let message = chat
+                        .as_ref()
+                        .and_then(|chat| self.conversations.get(chat))
+                        .and_then(|c| {
+                            c.messages.iter().find(|row| {
+                                row.content.media().and_then(|m| m.path.as_deref())
+                                    == Some(path.as_path())
+                            })
+                        })
+                        .map(|row| row.id.clone());
                     self.image_preview =
-                        Some(PreviewState::in_conversation(path, self.open_chat.clone()));
+                        Some(PreviewState::in_conversation(path.clone(), chat.clone()));
+                    if let Some(message) = message
+                        && let Some(preview) = &mut self.image_preview
+                    {
+                        preview.select_message(message, Some(path));
+                    }
+                    if let Some(chat) = chat {
+                        self.request_gallery(&chat, true);
+                    }
                     self.dialog = None;
                     self.picker = None;
                     // egui drops the focus of widgets behind a modal only from
@@ -5574,6 +5843,39 @@ impl App {
                     })
                 {
                     self.image_preview = None;
+                    return;
+                }
+                let next = self.image_preview.as_ref().and_then(|preview| {
+                    let listing = self
+                        .gallery
+                        .listing
+                        .as_ref()
+                        .filter(|listing| Some(listing.chat.as_str()) == preview.chat())?;
+                    let at = listing
+                        .media
+                        .iter()
+                        .position(|row| Some(row.id.as_str()) == preview.message())?;
+                    let index = if matches!(action, Action::NextImage) {
+                        at.checked_sub(1)?
+                    } else {
+                        at.checked_add(1)?
+                    };
+                    let row = listing.media.get(index)?;
+                    Some((listing.chat.clone(), row.id.clone()))
+                });
+                if let Some((chat, id)) = next {
+                    self.preview_media(chat, id, ctx);
+                    return;
+                }
+                if self.gallery.listing.as_ref().is_some_and(|listing| {
+                    self.image_preview.as_ref().is_some_and(|p| {
+                        Some(listing.chat.as_str()) == p.chat()
+                            && listing
+                                .media
+                                .iter()
+                                .any(|row| Some(row.id.as_str()) == p.message())
+                    })
+                }) {
                     return;
                 }
                 let conversations = &self.accounts[self.active].conversations;
@@ -5610,6 +5912,7 @@ impl App {
                 }
             }
             Action::CloseImagePreview => {
+                self.video.stop();
                 self.image_preview = None;
                 self.refocus_composer(ctx);
             }
@@ -6571,6 +6874,12 @@ impl App {
                 self.backend.send(Command::SetFavorite(chat, favorite));
             }
             Action::ShowDialog(dialog) => {
+                if let Dialog::ChatInfo(chat) = &dialog {
+                    self.gallery.tab = None;
+                    if self.gallery_accessible(chat) {
+                        self.request_gallery(chat, true);
+                    }
+                }
                 self.cancel_contact_dialog_request();
                 self.clear_chat_lock_entry();
                 if dialog == Dialog::NewChat {
@@ -8498,6 +8807,138 @@ mod tests {
     fn app() -> App {
         let root = std::env::temp_dir().join(format!("zapfast-app-{}", std::process::id()));
         App::headless(AppDirs::under(&root), Settings::default()).0
+    }
+
+    fn gallery_fixture(app: &mut App) -> (String, crate::model::ChatMedia) {
+        let chat = "gallery@s.whatsapp.net".to_owned();
+        app.chats
+            .push(Chat::new(chat.clone(), "Synthetic gallery".into()));
+        app.open_chat = Some(chat.clone());
+        let rows = ["older", "newer"]
+            .into_iter()
+            .enumerate()
+            .map(|(n, id)| {
+                let mut row = message(&chat, id, n as i64);
+                row.content = Content::Image {
+                    caption: None,
+                    motion: None,
+                    media: Media {
+                        mime: "image/jpeg".into(),
+                        size: 200 * 1024 * 1024,
+                        width: Some(400),
+                        height: Some(300),
+                        album: None,
+                        path: None,
+                        state: MediaState::Idle,
+                    },
+                };
+                row
+            })
+            .collect();
+        let listing = crate::model::ChatMedia::collect(chat.clone(), rows, 500);
+        (chat, listing)
+    }
+
+    #[test]
+    fn editing_a_gallery_link_replaces_its_url_and_removing_it_clears_the_row() {
+        let mut app = app();
+        let (chat, _) = gallery_fixture(&mut app);
+        let mut row = message(&chat, "link", 1);
+        row.content = Content::text("https://example.com/old");
+        app.gallery.listing = Some(crate::model::ChatMedia::collect(
+            chat,
+            vec![row.clone()],
+            500,
+        ));
+        row.content = Content::text("https://example.com/new");
+        app.message_updated(row.clone(), false);
+        assert_eq!(
+            app.gallery.listing.as_ref().unwrap().links[0].url,
+            "https://example.com/new"
+        );
+        row.content = Content::text("Removed the link");
+        app.message_updated(row, false);
+        assert!(app.gallery.listing.as_ref().unwrap().links.is_empty());
+    }
+
+    #[test]
+    fn archive_viewer_navigates_missing_items_without_disturbing_drafts_or_selection() {
+        let mut app = app();
+        let ctx = egui::Context::default();
+        let (chat, listing) = gallery_fixture(&mut app);
+        app.gallery.chat = Some(chat.clone());
+        app.gallery.listing = Some(listing);
+        app.composer = "Keep this draft".into();
+        app.pending = vec![Pending::File(PathBuf::from("synthetic-attachment.png"))];
+        app.selection = Some((chat.clone(), vec!["selected".into()]));
+        app.apply(
+            Action::PreviewMedia {
+                chat: chat.clone(),
+                message: "older".into(),
+            },
+            &ctx,
+        );
+        assert_eq!(app.image_preview.as_ref().unwrap().message(), Some("older"));
+        assert!(!app.image_preview.as_ref().unwrap().path().is_file());
+        app.apply(Action::NextImage, &ctx);
+        assert_eq!(app.image_preview.as_ref().unwrap().message(), Some("newer"));
+        app.apply(Action::PreviousImage, &ctx);
+        assert_eq!(app.image_preview.as_ref().unwrap().message(), Some("older"));
+        app.backend.record_demo_commands();
+        app.apply(
+            Action::Download {
+                chat: chat.clone(),
+                message: "older".into(),
+                card: None,
+            },
+            &ctx,
+        );
+        assert!(
+            app.backend
+                .take_demo_commands()
+                .iter()
+                .any(|command| matches!(command, Command::Download { explicit: true, .. }))
+        );
+        assert_eq!(app.composer, "Keep this draft");
+        assert!(
+            matches!(&app.pending[..],[Pending::File(path)] if path == &PathBuf::from("synthetic-attachment.png"))
+        );
+        assert_eq!(app.selection, Some((chat, vec!["selected".into()])));
+    }
+
+    #[test]
+    fn stale_gallery_results_and_results_after_relocking_are_discarded() {
+        let directory = tempfile::tempdir().unwrap();
+        let (mut app, events) =
+            App::headless(AppDirs::under(directory.path()), Settings::default());
+        let ctx = egui::Context::default();
+        let (chat, listing) = gallery_fixture(&mut app);
+        app.request_gallery(&chat, true);
+        let stale = app.gallery.token;
+        app.request_gallery(&chat, true);
+        events
+            .send(Event::Gallery {
+                chat: chat.clone(),
+                token: stale,
+                listing: Some(listing.clone()),
+            })
+            .unwrap();
+        app.background_frame(&ctx);
+        assert!(app.gallery.pending && app.gallery.listing.is_none());
+        app.chats
+            .iter_mut()
+            .find(|row| row.id == chat)
+            .unwrap()
+            .locked = true;
+        events
+            .send(Event::Gallery {
+                chat,
+                token: app.gallery.token,
+                listing: Some(listing),
+            })
+            .unwrap();
+        app.background_frame(&ctx);
+        assert!(app.gallery.listing.is_none());
     }
 
     /// Failed native drags leave pointer state intact; completed drags release it.

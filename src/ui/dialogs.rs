@@ -32,6 +32,9 @@ pub fn show(app: &mut App, ctx: &egui::Context) {
                 Dialog::NewContact | Dialog::MessageNumber => 380.0,
                 Dialog::NewChat => 420.0,
                 Dialog::UnlockLockedChats | Dialog::ConfirmLockChat(_) => 380.0,
+                Dialog::ChatInfo(_) if app.gallery.tab.is_some() => {
+                    (ui.ctx().content_rect().width() - 64.0).clamp(180.0, 760.0)
+                }
                 Dialog::ChatInfo(_) => 360.0,
                 Dialog::ConfirmDeleteChat(_) | Dialog::JoinGroup | Dialog::ConfirmStartOver => {
                     380.0
@@ -106,7 +109,13 @@ pub fn show(app: &mut App, ctx: &egui::Context) {
             }
         });
     if response.should_close() {
-        app.actions.push(Action::CloseDialog);
+        if response.backdrop_response.clicked() {
+            app.actions.push(Action::CloseDialog);
+        } else if matches!(app.dialog, Some(Dialog::ChatInfo(_))) && app.gallery.tab.is_some() {
+            app.actions.push(Action::GalleryTab(None));
+        } else {
+            app.actions.push(Action::CloseDialog);
+        }
     }
 }
 
@@ -1803,6 +1812,10 @@ fn new_contact(app: &mut App, ui: &mut egui::Ui) {
 
 /// Draws chat details and queues the available contact or group management actions.
 fn chat_info(app: &mut App, ui: &mut egui::Ui, id: &str) {
+    if app.gallery.tab.is_some() && app.gallery.chat.as_deref() == Some(id) {
+        super::gallery::show(app, ui, id);
+        return;
+    }
     let palette = app.palette;
     // Group members may not have an existing chat.
     let chat = app
@@ -1818,7 +1831,30 @@ fn chat_info(app: &mut App, ui: &mut egui::Ui, id: &str) {
     } else {
         crate::i18n::gettext(app.locale, "Contact")
     };
-    title(ui, app, heading.as_ref());
+    ui.horizontal(|ui| {
+        theme::text(ui, heading.as_ref(), theme::bold(18.0), palette.text);
+        ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+            if theme::icon_button(ui, Icon::X, 16.0, palette.secondary, palette.text, "Close")
+                .clicked()
+            {
+                app.actions.push(Action::CloseDialog);
+            }
+            if has_chat
+                && app.gallery_accessible(id)
+                && theme::soft_button(
+                    ui,
+                    &palette,
+                    Some(Icon::Image),
+                    crate::i18n::gettext(app.locale, "Media, links and docs").as_ref(),
+                    false,
+                )
+                .clicked()
+            {
+                app.actions.push(Action::OpenGallery { chat: id.into() });
+            }
+        });
+    });
+    ui.add_space(4.0);
     let description = chat
         .group_description
         .as_deref()

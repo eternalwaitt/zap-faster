@@ -1717,6 +1717,113 @@ fn media_album_sample(app: &mut App, grouped: bool) {
     app.scroll_to_bottom = true;
 }
 
+/// Offline gallery and transfer fixtures. They never use an account or a phone.
+fn gallery_sample(app: &mut App, page: &str) {
+    media_album_sample(app, true);
+    let chat = SAMPLES[0].id;
+    let mut rows = app.conversations[chat].messages.clone();
+    video_sample(app, None);
+    rows.extend(app.conversations[chat].messages.clone());
+    rows.push(message(
+        chat,
+        "gallery-document",
+        false,
+        crate::util::now(),
+        Content::Document {
+            media: media("application/pdf", 200 * 1024 * 1024, None, None),
+            file_name: "Synthetic handbook.pdf".into(),
+            caption: None,
+            pages: Some(12),
+        },
+    ));
+    rows.push(message(
+        chat,
+        "gallery-link",
+        false,
+        crate::util::now(),
+        Content::text("https://example.com/native-gallery"),
+    ));
+    app.conversations.get_mut(chat).unwrap().messages = rows.clone();
+    app.gallery.chat = Some(chat.into());
+    app.gallery.listing = Some(crate::model::ChatMedia::collect(
+        chat.into(),
+        rows,
+        crate::model::MEDIA_LIST_LIMIT,
+    ));
+    app.gallery.pending = false;
+    app.gallery.tab = Some(match page {
+        "gallery-docs" => crate::model::MediaTab::Docs,
+        "gallery-links" => crate::model::MediaTab::Links,
+        _ => crate::model::MediaTab::Media,
+    });
+    app.dialog = Some(Dialog::ChatInfo(chat.into()));
+    if page == "gallery-pending" {
+        app.gallery.listing = None;
+        app.gallery.pending = true;
+    }
+    if page == "gallery-failed" {
+        app.gallery.listing = None;
+        app.gallery.failed = true;
+    }
+    if page.starts_with("viewer-") {
+        app.dialog = None;
+        let id = if page == "viewer-video" {
+            "demo-video"
+        } else {
+            "album-0"
+        };
+        let path = app.conversations[chat]
+            .message(id)
+            .and_then(|row| row.content.media())
+            .and_then(|media| media.path.clone());
+        let mut preview = crate::image_preview::PreviewState::in_conversation(
+            std::path::PathBuf::new(),
+            Some(chat.into()),
+        );
+        preview.select_message(id.into(), path.clone());
+        app.image_preview = Some(preview);
+        if page == "viewer-video"
+            && let Some(path) = path
+        {
+            app.actions.push(crate::model::Action::PlayVideo {
+                message: id.into(),
+                path,
+            });
+        }
+        if page == "viewer-progress" {
+            app.conversations
+                .get_mut(chat)
+                .unwrap()
+                .message_mut(id)
+                .unwrap()
+                .content
+                .media_at_mut(None)
+                .unwrap()
+                .state = crate::model::MediaState::Transferring {
+                bytes: 75 * 1024 * 1024,
+                total: Some(200 * 1024 * 1024),
+            };
+        }
+    }
+    if page == "transfer-progress" {
+        app.dialog = None;
+        app.uploads
+            .insert(1, (chat.into(), 35 * 1024 * 1024, 100 * 1024 * 1024));
+        app.conversations
+            .get_mut(chat)
+            .unwrap()
+            .message_mut("gallery-document")
+            .unwrap()
+            .content
+            .media_at_mut(None)
+            .unwrap()
+            .state = crate::model::MediaState::Transferring {
+            bytes: 75 * 1024 * 1024,
+            total: Some(200 * 1024 * 1024),
+        };
+    }
+}
+
 /// The search pane over the sample chat with the most matches for
 /// `query`, listing them newest first as the archive would.
 fn chat_search_sample(app: &mut App, query: &str) {
@@ -1869,6 +1976,10 @@ pub fn apply_flags(app: &mut App, page: Option<&str>) {
                 app.actions.push(crate::model::Action::PreviewImage(
                     app.dirs.media_cache_dir().join(stock::LAUNCH.name),
                 ));
+            }
+            "gallery" | "gallery-docs" | "gallery-links" | "gallery-pending" | "gallery-failed"
+            | "viewer-missing" | "viewer-progress" | "viewer-video" | "transfer-progress" => {
+                gallery_sample(app, part)
             }
             "video" => video_sample(app, None),
             "video-playing" => video_sample(app, Some("demo-video")),
@@ -5205,6 +5316,15 @@ mod tests {
             "about",
             "failed",
             "info",
+            "gallery",
+            "gallery-docs",
+            "gallery-links",
+            "gallery-pending",
+            "gallery-failed",
+            "viewer-missing",
+            "viewer-progress",
+            "viewer-video",
+            "transfer-progress",
             "group-info",
             "group-info-rename",
             "group-info-locked",
@@ -6608,6 +6728,36 @@ mod tests {
         render(&mut app, &ctx);
         for index in 0..4 {
             assert!(app.conversations[&chat].rows[&format!("album-{index}")].height > 0.0);
+        }
+    }
+
+    #[test]
+    fn gallery_rows_start_below_the_navigation_controls() {
+        for page in ["gallery-docs", "gallery-links"] {
+            let mut app = app();
+            apply_flags(&mut app, Some(page));
+            let ctx = egui::Context::default();
+            ctx.enable_accesskit();
+            app.attach(&ctx);
+            render(&mut app, &ctx);
+            let nodes = accessible_nodes(&mut app, &ctx, Vec::new());
+            let refresh = nodes
+                .iter()
+                .find(|(label, _, _)| label == "Refresh")
+                .expect("navigation control")
+                .2;
+            let content = nodes
+                .iter()
+                .find(|(label, _, _)| {
+                    label.starts_with("Synthetic handbook.pdf")
+                        || label.starts_with("https://example.com/native-gallery")
+                })
+                .expect("gallery row")
+                .2;
+            assert!(
+                content.y > refresh.y + 20.0,
+                "{page}: row {content:?} overlaps navigation {refresh:?}"
+            );
         }
     }
 
